@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Connection</title>
+</head>
+<body>
+    <h1>Socket.IO Connection</h1>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000)
+        console.log(socket);
+
+        socket.on("connect", () => {
+            console.log("Connected to server, My ID: ",  socket.id);
+        });
+    </script>
+</body>
+</html>
+<!-- (index):15 Socket {connected: false, recovered: false, receiveBuffer: Array(0), sendBuffer: Array(0), _queue: Array(0), …}acks: {}connected: trueflags: {}id: "2R-bnft6-N63pERqAAAJ"ids: 0io: Manager {nsps: {…}, subs: Array(5), opts: {…}, setTimeoutFn: ƒ, clearTimeoutFn: ƒ, …}nsp: "/"receiveBuffer: []recovered: undefinedsendBuffer: []subs: (4) [ƒ, ƒ, ƒ, ƒ]_callbacks: {}_opts: {path: '/socket.io', transports: Array(3), hostname: 'localhost', secure: false, port: '3000'}_pid: undefined_queue: []_queueSeq: 0active: (...)disconnected: (...)volatile: (...)[[Prototype]]: Emitter -->
+<!-- Socket {connected: false, recovered: false, receiveBuffer: Array(0), sendBuffer: Array(0), _queue: Array(0), …}
+acks
+: 
+{}
+connected
+: 
+true
+flags
+: 
+{}
+id
+: 
+"2R-bnft6-N63pERqAAAJ"
+ids
+: 
+0
+io
+: 
+Manager {nsps: {…}, subs: Array(5), opts: {…}, setTimeoutFn: ƒ, clearTimeoutFn: ƒ, …}
+nsp
+: 
+"/"
+receiveBuffer
+: 
+[]
+recovered
+: 
+undefined
+sendBuffer
+: 
+[]
+subs
+: 
+(4) [ƒ, ƒ, ƒ, ƒ]
+_callbacks
+: 
+{}
+_opts
+: 
+{path: '/socket.io', transports: Array(3), hostname: 'localhost', secure: false, port: '3000'}
+_pid
+: 
+undefined
+_queue
+: 
+[]
+_queueSeq
+: 
+0
+active
+: 
+(...)
+disconnected
+: 
+(...)
+volatile
+: 
+(...)
+[[Prototype]]
+: 
+Emitter -->

@@ -1,0 +1,54 @@
+=> Socket.IO (JavaScript Library)
+    1. Real-time communication (transfer datas Server vs Client)
+    2. Bidirectional            (Server to Client or Client to Server)
+    3. Event-based              (One event to both listen )
+
+    Special Feature: Auto-reconnection
+    do not depend on third party like pusher to get customized real time service.
+
+usage for = Chat apps, live notification, online games, live location tracking, ....
+
+WebSocket
+--------------------------------------------------------
+=> Install nodemon Globally (v 3.1.10)
+    npm install -g nodemon
+
+    nodemon -v
+
+    nodemon server.js 
+
+    (optional)
+        package.json 
+        
+        "scripts":{
+            "dev": "nodemon server.js"
+        }
+
+        npm run dev
+
+
+--------------------------------------------------------
+
+=> Intro 
+    https://socket.io/
+
+    create public folders
+    create public > index.html 
+    create server.js
+
+    = Install
+    https://socket.io/ > Documentaion > Server leftsidebar > Installation( https://socket.io/docs/v4/server-installation/)
+
+    npm init -y
+    npm install express
+    npm install socket.io
+
+    or 
+
+    npm install express socket.io
+
+
+    node server.js (you may need to always server reset after something change to update)
+    nodemon server.js (auto reset)
+
+--------------------------------------------------------------------------------------
