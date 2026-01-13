@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Connection</title>
+</head>
+<body>
+    <h1>Socket.IO Connection</h1>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000)
+        console.log(socket);
+
+        socket.on("connect", () => {
+            console.log("Connected to server, My ID: ",  socket.id);
+        
+            socket.emit("messageFromClient",{msg:"hello from browser"});
+        });
+
+        socket.on('messagefromServer',(payload)=>{
+            console.log("Server Say: ",payload)
+        });
+
+        socket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        socket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+        socket.on('userDisconnect',(payload)=>{
+            console.log("Server Say your id: ",payload)
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->

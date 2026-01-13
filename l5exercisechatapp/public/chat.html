@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercie Chat App</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+</head>
+<body>
+
+    <div class="container mt-4">
+        <h3>Chat App</h3>
+        <p>Go to <a href="/">Index Page</a></p>
+
+        <form id="messageform" class="mb-3" action="" >
+            <div class="row">
+                <div class="col-md-6">
+                    <input type="text" name="usermessage" id="usermessage" class="form-control" placeholder="Enter your message"/>
+                </div>
+                <div class="col-md-2">
+                    <input type="submit" class="w-100 btn btn-primary" value="Send" />
+                </div>
+            </div>
+        </form>
+
+        <ul id="display" class="list-group">
+
+        </ul>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000)
+        console.log(socket);
+
+        socket.on("connect", () => {
+            console.log("Connected to server, My ID: ",  socket.id);
+        
+            socket.emit("messageFromClient",{msg:"hello from browser"});
+        });
+
+        socket.on('messagefromServer',(payload)=>{
+            console.log("Server Say: ",payload)
+        });
+
+        socket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        socket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+        socket.on('userDisconnect',(payload)=>{
+            console.log("Server Say your id: ",payload)
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->

@@ -82,3 +82,34 @@ volatile
 [[Prototype]]
 : 
 Emitter -->
+
+<!-- What this line really does
+const socket = io();
+
+
+Behind the scenes, Socket.IO does ALL of this automatically:
+
+Creates a Socket.IO client instance
+
+Sends a handshake request to the server
+
+Upgrades HTTP → WebSocket
+
+Opens a persistent connection
+
+Triggers server-side:
+
+io.on("connection", ...)
+
+
+So even though you didn’t explicitly say “connect”, it already happened.
+
+Why server logs connection immediately
+
+Because Socket.IO client auto-connects by default.
+
+Equivalent to:
+
+const socket = io({
+    autoConnect: true // DEFAULT
+}); -->

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Connection</title>
+</head>
+<body>
+    <h1>Socket.IO Connection</h1>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000)
+        console.log(socket);
+
+        socket.on("connect", () => {
+            console.log("Connected to server, My ID: ",  socket.id);
+        
+            socket.emit("messageFromClient",{msg:"hello from browser"});
+        });
+
+        socket.on('messagefromServer',(payload)=>{
+            console.log("Server Say: ",payload)
+        });
+
+        socket.on('userDisconnect',(payload)=>{
+            console.log("Server Say your id: ",payload)
+        });
+
+
+    </script>
+</body>
+</html>
+<!-- 1️⃣ Short Answer (First)
+
+connection = server waits
+
+connect = client confirms
+
+They happen at the same moment, but on different sides.
+
+2️⃣ Real-Life Example (Phone Call 📞)
+📍 Server = Call Center
+📍 Client = You
+Action	Socket.IO
+Call center waits for calls	io.on("connection")
+You hear “call connected”	socket.on("connect")
+
+Same call, two perspectives.
+
+3️⃣ SERVER SIDE — connection
+io.on("connection", (socket) => {
+    console.log("New client connected", socket.id);
+});
+
+What it REALLY means:
+
+❝ A new client has just connected to me ❞
+
+✔ Runs on the server
+✔ Runs once per client
+✔ Gives you a socket object for that client
+
+📌 The server creates the socket ID here.
+
+When does it run?
+
+➡ When a browser calls io() successfully.
+
+4️⃣ CLIENT SIDE — connect
+socket.on("connect", () => {
+    console.log("Connected to server", socket.id);
+});
+
+What it REALLY means:
+
+❝ I am now connected to the server ❞
+
+✔ Runs in the browser
+✔ Confirms connection success
+✔ Now allowed to send/receive messages
+
+📌 Client receives the socket ID here.
+
+5️⃣ Timeline (Very Important)
+1️⃣ Browser loads page
+2️⃣ Client calls io()
+3️⃣ Server fires "connection"
+4️⃣ Server assigns socket.id
+5️⃣ Client fires "connec -->
