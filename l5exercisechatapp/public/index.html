@@ -21,13 +21,19 @@
         socket.on("connect", () => {
             console.log("Connected to server, My ID: ",  socket.id);
         
-            socket.emit("messageFromClient",{msg:"hello from browser"});
+            socket.emit("messageFromClient",{msg:"hello from browser - Index Page"});
         });
 
         socket.on('messagefromServer',(payload)=>{
             console.log("Server Say: ",payload)
         });
 
+        // Listen from server
+        socket.on("newMessageToClients",(datafromserver)=>{
+            console.log("New message from sever: ",datafromserver);
+        });
+
+        // Handle disconnect
         socket.on("disconnect",(reason)=>{
             console.log("Disconnected: ",reason);
         });

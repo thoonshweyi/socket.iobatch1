@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Namespace</title>
+</head>
+<body>
+    <h1>Socket.IO Default Namespace "/"</h1>
+
+    <p>
+        <a href="index.html">Index Page (/)</a>
+        <a href="admin.html">Admin Page (/admin)</a>
+    </p>
+
+    <form id="messageform" action="" >
+        <input type="text" name="usermessage" id="usermessage" class="" placeholder="Enter your message"/>
+        <input type="submit" value="Send" />
+    </form>
+
+    <ul id="display">
+
+    </ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let newli = (msg)=>{
+            const newli = document.createElement('li');
+            newli.textContent = msg;
+            document.querySelector('#display').appendChild(newli);
+        }
+
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000)
+        console.log(socket);
+
+        socket.on("connect", () => {
+            console.log("Connected to server, My ID: ",  socket.id);
+        });
+
+        // Listen from server
+        socket.on('welcome',(payload)=>{
+            newli(`Event from ${payload.ns} : ${payload.msg}`);
+        });
+
+        // Handle form submit
+        document.querySelector("#messageform").addEventListener("submit",(e)=>{
+            e.preventDefault();
+
+            const input = document.querySelector("#usermessage");
+            const getinputval = input.value.trim();
+            console.log(getinputval);
+            if(!getinputval) return;
+
+            socket.emit("messageFromClient",{getinputval});
+            input.value = '';
+            input.focus();
+        })
+
+        socket.on("messageFromServer",(payload)=>{
+            newli(`${payload.ns} = ${payload.text}`);
+        });
+   
+        // Handle disconnect
+        socket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        socket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+        socket.on('userDisconnect',(payload)=>{
+            console.log("Server Say your id: ",payload)
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->

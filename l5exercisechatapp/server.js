@@ -56,6 +56,22 @@ io.on("connection", (socket) => {
         console.log("Data: ",data);
     })
 
+
+
+    // For chat.html
+    socket.on("newMessageToServer",(data)=>{
+        console.log("Chat message from client = ", data);
+
+        // Brocast to All Clients (remark: including sender)
+        io.emit('newMessageToClients',{
+            text: data.text,
+            time: new Date().toISOString()
+        });
+        // io.emit() = to all users 
+        // socket.emit() = return to sender
+
+    })
+
     // Handle disconnect
     socket.on("disconnect",()=>{
         console.log("Client disconnected: ",socket.id);
@@ -66,6 +82,7 @@ io.on("connection", (socket) => {
     socket.on("error",(error)=>{
         console.error(`Socket error, ${socket.id}`,error);
     })
+    
 });
 
 

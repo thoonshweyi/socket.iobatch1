@@ -36,16 +36,41 @@
         const socket = io(); // or io (http://localhost:3000)
         console.log(socket);
 
-        socket.on("connect", () => {
-            console.log("Connected to server, My ID: ",  socket.id);
+        // socket.on("connect", () => {
+        //     console.log("Connected to server, My ID: ",  socket.id);
+        // });
+
+        // Handle form submit
+        document.querySelector('#messageform').addEventListener('submit',(e)=>{
+            e.preventDefault();
+
+            const input = document.querySelector('#usermessage');
+            const getinputval = input.value.trim();
+
+            console.log(getinputval);
+
+            if(!getinputval) return;
+
+            // Send message to server
+            socket.emit("newMessageToServer",{text:getinputval});
+
+            input.value = "";
+            input.focus();
+
+        });
+
+
+        // Listen from server
+        socket.on("newMessageToClients",(datafromserver)=>{
+            console.log("New message from sever: ",datafromserver);
         
-            socket.emit("messageFromClient",{msg:"hello from browser"});
+            const newli = document.createElement('li');
+            newli.classList.add("list-group-item");
+            newli.textContent = datafromserver.text;
+            document.querySelector("#display").appendChild(newli);
         });
 
-        socket.on('messagefromServer',(payload)=>{
-            console.log("Server Say: ",payload)
-        });
-
+        // Handle disconnect
         socket.on("disconnect",(reason)=>{
             console.log("Disconnected: ",reason);
         });
