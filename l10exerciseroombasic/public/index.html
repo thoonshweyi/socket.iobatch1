@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Namespace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+
+</head>
+<body class="p-3">
+    <h1>Socket.IO Room Basic</h1>
+
+    <div class="row g-2 align-items-center mb-3">
+        <div class="col-md-6">
+            <select id="roomselect" class="form-select">
+                <option value="room1">Room One</option>
+                <option value="room2">Room Two</option>
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <button id="joinroom-btn" class="w-100 btn btn-primary">Join Room</button>
+        </div>
+
+    </div>
+
+    <p id="currentroom">Current Room: (none)</p>
+    <hr/>
+
+
+    <form id="messageform" action="" class="mb-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <input type="text" name="usermessage" id="usermessage" class="form-control" placeholder="Enter your message"/>
+            </div>
+
+            <div class="col-md-2">
+                <input type="submit" class="w-100 btn btn-primary" value="Send" />
+            </div>
+        </div>
+
+    </form>
+
+    <ul id="display" class="list-group">
+        
+    </ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let newli = (msg)=>{
+            const newli = document.createElement('li');
+            newli.textContent = msg;
+            document.querySelector('#display').appendChild(newli);
+        }
+
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000), default namespace "/"
+        console.log(socket);
+
+        socket.on("connect", () => {
+           newli(`Connected to /, My ID:  ${socket.id}`);
+        });
+
+        document.querySelector("#joinroom-btn").addEventListener('click',()=>{
+            const selected = document.querySelector('#roomselect');
+            const selectedroom = selected.value;
+            // console.log(getroom);
+
+            if(!selectedroom) return;
+
+            socket.emit("joinRoomFromClient",selectedroom);
+        });
+    
+        // Handle form submit
+        document.querySelector("#messageform").addEventListener("submit",(e)=>{
+            e.preventDefault();
+
+            const input = document.querySelector("#usermessage");
+            const getinputval = input.value.trim();
+            console.log(getinputval);
+            if(!getinputval) return;
+
+            socket.emit("messageFromClient",{getinputval});
+
+            input.value = '';
+            input.focus();
+        })
+
+
+
+        // Receive message from server
+        socket.on("messageFromServer",(payload)=>{
+            newli(`From ${payload.from} : ${payload.text}`);
+        });
+   
+        // Handle disconnect
+        socket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        socket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+        socket.on('userDisconnect',(payload)=>{
+            console.log("Server Say your id: ",payload)
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->
