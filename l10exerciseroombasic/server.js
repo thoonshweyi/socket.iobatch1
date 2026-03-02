@@ -42,15 +42,62 @@ const io = new Server(expressServer,{
     }
 });
 
-// Default namespace "/"
+// Default namespace "/", leave(), join()
 io.on("connection", (socket) => {
-    console.log("New client connected to /: ",  socket.id);
+    // console.log("New client connected to /: ",  socket.id);
 
     // room join Handler
-    socket.on('joinRoomFromClient',(roomname)=>{
-        // join new room 
-        socket.emit('joinRoomFromServer',roomname);
-        console.log(`${socket.id} joined ${roomname}`);
+    socket.on('joinRoomFromClient',(roomName)=>{
+        console.log(socket);
+        console.log(socket.rooms); // Set(1) { 'SSADtFVvNWCeZiLdAAAD' }
+
+        // leave all previous room except it's own room
+        for(const room of socket.rooms){
+            console.log(room);
+
+            if(room != socket.id){
+                socket.leave(room);
+            }
+        }
+
+        // joinnew room
+        socket.join(roomName)
+
+        // joined alert 
+        socket.emit('joinedRoomFromServer',roomName);
+        
+        console.log(`${socket.id} joined ${roomName}`);
+    })
+
+    socket.on("messageFromClient",(data)=>{
+        // console.log(socket); // 
+        console.log(socket.rooms); // Set(2) { 'EGlDdI7tQVL8oGjNAAAD', 'room1' }
+
+        // Find the Room
+        // // method 1
+        // const rooms = [...socket.rooms];
+        // // console.log(rooms); // 0 = socket.id, 1= joined room
+        // let currentRoom = rooms[1];
+        // console.log(currentRoom);
+
+
+        // // method 2
+        // const rooms = Array.from(socket.rooms);
+        // // console.log(rooms); // 0 = socket.id, 1= joined room
+        // let currentRoom = rooms[1];
+        // console.log(currentRoom);
+
+        // method 3
+        const [socketid,currentRoom] = Array.from(socket.rooms);
+        // console.log(currentRoom);
+
+        if(!currentRoom) return;
+
+        io.to(currentRoom).emit("messageFromServer",{
+            room: currentRoom,
+            from:socket.id,
+            text: data.getinputval 
+        });
     })
 
     
@@ -73,132 +120,18 @@ process.on("SIGINT",()=>{
 // SIGHUP = Terminal Close
 
 
+// 🔹 What Is the Default Room?
 
+// When a client connects:
 
-
-
-
-
-
-
-// 1️⃣ What is the second parameter?
-// const io = new Server(expressServer, { ... });
-
-
-// 👉 This { ... } is options for Socket.IO server
-// 👉 It tells Socket.IO how it should behave
-
-// Think of it like:
-
-// “Dear Socket.IO, here are the rules you must follow.”
-
-// 2️⃣ Why do we need this object?
-
-// Because:
-
-// Browser and server may be on different origins
-
-// Browsers block connections for security (CORS)
-
-// Socket.IO must be told who is allowed to connect
-
-// 3️⃣ Your Code Explained
-// const io = new Server(expressServer, {
-//     cors: {
-//         origin: `http://localhost:${port}`,
-//         methods: ["GET", "POST"]
-//     }
+// io.on("connection", (socket) => {
+//     console.log(socket.id);
 // });
 
+// Socket.IO automatically creates a room with the same name as socket.id
+// and makes the socket join that room.
 
-// Let’s break it down 👇
+// This is called the default room (or private room).
 
-// 4️⃣ cors (MOST IMPORTANT PART)
-// What is CORS?
-
-// CORS = Cross-Origin Resource Sharing
-
-// Browser rule:
-
-// “Don’t allow requests from another origin unless server allows it.”
-
-// What is an “origin”?
-
-// An origin is made of 3 parts:
-
-// protocol + domain + port
-
-
-// Example:
-
-// http://localhost:3000
-
-
-// If any part changes → different origin.
-
-// 5️⃣ origin
-// origin: `http://localhost:${port}`
-
-
-// Means:
-
-// ✅ Allow Socket.IO connections only from
-// http://localhost:3000
-
-// ✔ Your browser page
-// ✔ Your Socket.IO client
-
-// ❌ Other websites
-// ❌ Other ports
-
-// Common alternatives
-// origin: "*"
-
-
-// ⚠ Allows any website (not recommended for production)
-
-// origin: ["http://localhost:3000", "http://127.0.0.1:3000"]
-
-
-// Allow multiple origins
-
-// 6️⃣ methods
-// methods: ["GET", "POST"]
-
-
-// Means:
-
-// Which HTTP methods are allowed during handshake
-
-// Why HTTP?
-// Because Socket.IO starts with HTTP, then upgrades to WebSocket.
-
-// ✔ GET → initial handshake
-// ✔ POST → fallback (polling)
-
-// 7️⃣ What happens internally?
-// Step-by-step
-
-// 1️⃣ Browser loads your page
-// 2️⃣ io() tries to connect
-// 3️⃣ Browser sends HTTP request
-// 4️⃣ Socket.IO checks CORS rules
-// 5️⃣ If origin matches → ✅ allow
-// 6️⃣ Connection upgraded to WebSocket
-
-// If origin is not allowed → ❌ blocked
-
-// 8️⃣ Without This Config (Common Error)
-
-// You’ll see error like:
-
-// Access to XMLHttpRequest has been blocked by CORS policy
-
-
-// This happens when:
-
-// Client and server ports differ
-
-// Different domains
-
-// Different protocol (http vs https)
+// You do NOT create it.
+// Socket.IO creates it automatically.
