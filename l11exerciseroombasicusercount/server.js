@@ -49,21 +49,20 @@ io.on("connection", (socket) => {
     // room join Handler
     socket.on('joinRoomFromClient',async (roomName,callback)=>{
         // console.log(socket);
-        // console.log(socket.rooms); // Set(1) { 'SSADtFVvNWCeZiLdAAAD' }
+        // console.log("Before Join Print = ",socket.rooms); // Previous room // Set(1) { 'SSADtFVvNWCeZiLdAAAD' } // User
 
         // console.log(callback); // [Function (anonymous)]
 
          // leave all previous room except it's own room
         for(const room of socket.rooms){
             // console.log(room);
-
             if(room != socket.id) socket.leave(room);
         }
 
         // joinnew room
         socket.join(roomName)
 
-        const socketinRoom = await io.in(roomName).fetchSockets();
+        const socketinRoom = await io.in(roomName).fetchSockets(); // [{socket}]
         const usercount = socketinRoom.length;
 
         console.log("socketinRoom = ",socketinRoom);
@@ -78,6 +77,8 @@ io.on("connection", (socket) => {
         socket.emit('joinedRoomFromServer',roomName);
         
         console.log(`${socket.id} joined ${roomName}`);
+
+        // console.log("After Join Print = ",socket.rooms); // After Join Print =  Set(2) { '2_kM1wRij8Q3YwXGAAAH', 'room1' } // current room
     })
 
     socket.on("messageFromClient",(data)=>{
@@ -146,3 +147,39 @@ process.on("SIGINT",()=>{
 
 // You do NOT create it.
 // Socket.IO creates it automatically.
+
+
+// 🔹 What io.in(roomName) Does
+
+// io → the main Socket.IO server instance
+
+// .in(roomName) → select a room
+
+// Then you usually chain .emit() to send an event
+
+// 🔹 Difference From Other Methods
+// 1️⃣ socket.to(roomName).emit()
+
+// Sends to everyone in the room
+
+// ❌ Excludes the sender
+
+// 2️⃣ io.in(roomName).emit()
+
+// Sends to everyone in the room
+
+// ✅ Includes the sender
+
+// 🔹 Why Two Methods Exist?
+
+// It’s just naming preference / readability.
+
+// to() → sounds natural when sending something
+
+// "Send this TO roomA"
+
+// in() → sounds natural when selecting a room
+
+// "Broadcast IN roomA"
+
+// Internally, they return the same BroadcastOperator object.
