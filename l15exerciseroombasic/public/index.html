@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Namespace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+
+</head>
+<body class="p-3">
+
+    <di class="container">
+        <h1 class="mb-3">Socket.IO Room Basic</h1>
+
+        <!-- Profile -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-5">
+                        <input type="text" id="username" class="form-control" placeholder="Enter your name" />
+                    </div>
+
+                    <div class="col-md-2">
+                        <button id="setprofilebtn" class="w-100 btn btn-dark">Set Name</button>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div id="profielstatus" class="text-muted">Name: (not set)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6">
+                        <select id="roomselect" class="form-select">
+                            <option value="room1">Room One</option>
+                            <option value="room2">Room Two</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <button id="joinroom-btn" class="w-100 btn btn-primary">Join Room</button>
+                    </div>
+
+                    <div class="col-md-4">
+                        <p id="currentroom" class="fw-semibold">Current Room: (none)</p>
+                        <p id="currentuser" class="text-muted">Current Users: 0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message -->
+        <form id="messageform" action="" class="mb-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-8">
+                    <input type="text" name="usermessage" id="usermessage" class="form-control" placeholder="Enter your message"/>
+                </div>
+
+                <div class="col-md-2">
+                    <input type="submit" class="w-100 btn btn-success" value="Send" />
+                </div>
+
+                <div class="col-md-2">
+                    <button type="button" id="clearbtn" class="w-100 btn btn-outline-secondary">Clear</button>
+                </div>
+            </div>
+        </form>
+
+        <hr/>
+        <p id="typingstatus" class="text-muted"></p>
+        <ul id="display" class="list-group"></ul>
+
+    </div>
+
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const diplay = document.querySelector('#display');
+        const typingstatus = document.querySelector("#typingstatus");
+        const getinput =  document.querySelector("#usermessage");
+
+        const socket = io(); // Connet to Same Origin (http://localhost:3000) // or io (http://localhost:3000), default namespace "/"
+
+        let typingtimeout = null;
+        let setRoom = null;
+
+        let newli = (msg)=>{
+            const newli = document.createElement('li');
+            newli.className = "list-group-item";
+            newli.textContent = msg;
+            diplay.appendChild(newli);
+
+            // display.scrollTop = display.scrollHeight;
+        }
+
+        // connect
+        socket.on("connect", () => {
+           newli(`Connected to /, My ID:  ${socket.id}`);
+        });
+
+        // set profile
+        document.querySelector('#setprofilebtn').addEventListener('click',()=>{
+            const name = document.querySelector('#username').value.trim();
+
+            // console.log(name);
+
+            socket.emit('setProfileFromClient',{name},(res)=>{
+                document.querySelector('#profilestatus').textContent = `Name: ${name}`;
+            });
+        });
+
+        // join room
+        document.querySelector("#joinroom-btn").addEventListener('click',()=>{
+            const selected = document.querySelector('#roomselect');
+            const selectedroom = selected.value;
+            // console.log(selectedroom);
+
+            if(!selectedroom) return;
+
+            socket.emit("joinRoomFromClient",selectedroom,(roomname,count)=>{
+                document.querySelector("#currentuser").textContent = `Current Users: ${count}`;
+            });
+        });
+
+         // Receive joined room from server
+        socket.on("joinedRoomFromServer",(room)=>{
+            setRoom = room;
+            document.querySelector('#currentroom').textContent = `Current Room: ${setRoom}`;
+
+            newli(`You joined room: ${setRoom}`);
+        });
+
+        // Typing indicator from users
+        socket.on("typingFromServer",(payload)=>{
+            console.log("type server");
+            typingstatus.textContent = `${payload.from} is typing....`;
+
+            if(typingtimeout) clearTimeout(typingtimeout);
+
+            typingtimeout = setTimeout(()=>{
+                typingstatus.textContent = "";
+            },2000)
+        }); 
+        socket.on("stoptypingFromServer",(payload)=>{
+            typingstatus.textContent = "";
+        }); 
+
+        // Emit typing event
+        getinput.addEventListener("input",()=>{
+            if(getinput.value.trim().length > 0){
+                socket.emit("typingFromClient");
+            }else{
+                socket.emit("stoptypingFromClient");
+            }
+        });
+
+        // => My Method
+        // getinput.addEventListener("keyup",()=>{
+        //     socket.emit("stoptypingFromClient");
+        // })
+
+        // Live room user count (for All Client)
+        socket.on('roomUsers',(payload)=>{
+            if(payload.roomname == setRoom){
+                document.querySelector("#currentuser").textContent = `Current Users: ${payload.count}`;
+            }
+        });
+    
+        // Handle form submit
+        document.querySelector("#messageform").addEventListener("submit",(e)=>{
+            e.preventDefault();
+
+            const input = document.querySelector("#usermessage");
+            const getinputval = input.value.trim();
+            console.log(getinputval);
+            if(!getinputval) return;
+
+            socket.emit("messageFromClient",{getinputval});
+
+            socket.emit("stoptypingFromClient");
+
+            input.value = '';
+            input.focus();
+        })
+
+
+
+        // Receive message from server
+        socket.on("messageFromServer",(payload)=>{
+            newli(`From ${payload.from} : ${payload.text}`);
+        });
+
+        // System Message
+        socket.on("systemAlertFromServer",(payload)=>{
+            newli(`System : ${payload.text}`);
+        });
+
+        // Clear UI
+        document.querySelector('#clearbtn').addEventListener('click',()=>{
+            display.innerHTML = '';
+        });
+   
+        // Handle disconnect
+        socket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        socket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+        socket.on('userDisconnect',(payload)=>{
+            console.log("Server Say your id: ",payload)
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->

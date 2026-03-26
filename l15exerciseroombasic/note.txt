@@ -1,0 +1,24 @@
+
+=> Intro 
+    https://socket.io/
+
+    create public folders
+    create public > index.html 
+    create server.js
+
+    = Install
+    https://socket.io/ > Documentaion > Server leftsidebar > Installation( https://socket.io/docs/v4/server-installation/)
+
+    npm init -y
+    npm install express             (^5.2.1)
+    npm install socket.io           (^4.8.3)
+
+    or 
+
+    npm install express socket.io
+
+
+    node server.js (you may need to always server reset after something change to update)
+    nodemon server.js (auto reset)
+
+--------------------------------------------------------------------------------------
