@@ -25,7 +25,7 @@
                     </div>
 
                     <div class="col-md-5">
-                        <div id="profielstatus" class="text-muted">Name: (not set)</div>
+                        <div id="profilestatus" class="text-muted">Name: (not set)</div>
                     </div>
                 </div>
             </div>
@@ -101,17 +101,19 @@
 
         // connect
         socket.on("connect", () => {
-           newli(`Connected to /, My ID:  ${socket.id}`);
+           newli(`Connected My ID:  ${socket.id}`);
         });
 
         // set profile
         document.querySelector('#setprofilebtn').addEventListener('click',()=>{
             const name = document.querySelector('#username').value.trim();
-
-            // console.log(name);
+            console.log(name);
 
             socket.emit('setProfileFromClient',{name},(res)=>{
+                if(!res?.ok) return newli(`Set name field: ${res?.error}`);
+
                 document.querySelector('#profilestatus').textContent = `Name: ${name}`;
+                newli(`System: Name set to ${res.name}`)
             });
         });
 
@@ -181,7 +183,9 @@
             console.log(getinputval);
             if(!getinputval) return;
 
-            socket.emit("messageFromClient",{getinputval});
+            socket.emit("messageFromClient",{getinputval},(res)=>{
+                if(!res?.ok) newli(`Send failed: ${res?.error}`)
+            });
 
             socket.emit("stoptypingFromClient");
 
@@ -208,12 +212,12 @@
    
         // Handle disconnect
         socket.on("disconnect",(reason)=>{
-            console.log("Disconnected: ",reason);
+            newli(`System: Disconnected ${reason}`);
         });
 
         // Handle reconnect
         socket.on("reconnect",(attemptNumber)=>{
-            console.log("Reconected: ",attemptNumber);
+            newli(`System: Reconected: ${attemptNumber}`);
         });
 
 

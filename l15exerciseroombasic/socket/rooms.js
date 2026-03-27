@@ -1,9 +1,13 @@
+import { emitRoomCount } from "./main.js";
+
 export function roomHandlers(io,socket){
     // Profile Handler
     socket.on('setProfileFromClient',(data,callback)=>{
-
         const name = String(data?.name ?? "").trim().slice(0,20);
+        if(!name) return  callback({ok:false, error: `Name is required`});
+        
         socket.data.userName = name;
+        callback({ok:true,name})
     });
 
     // join room Handler
@@ -47,6 +51,7 @@ export function roomHandlers(io,socket){
         // => method 2
         console.log("Previous Room = ", socket.data.currentRoom);
         try{    
+
             if(!roomName) return;
 
             // previous room
@@ -55,7 +60,11 @@ export function roomHandlers(io,socket){
             // leave all previous room
             if(prevRoom && prevRoom !== roomName){
                 await socket.leave(prevRoom);
-                await emitRoomCount(prevRoom); // update old room users (everyone see decrement)
+                await emitRoomCount(io,prevRoom); // update old room users (everyone see decrement)
+
+                socket.to(prevRoom).emit("systemAlertFromServer",{
+                    text: `${socket.data.userName} left the group chat.`
+                })
             }
 
             // join new room
@@ -65,14 +74,17 @@ export function roomHandlers(io,socket){
             }
 
             // update new room users(everyone sees increment)
-            emitRoomCount(roomName);
+            await emitRoomCount(io,roomName);
+            
+            socket.to(roomName).emit("systemAlertFromServer",{
+                text: `${socket.data.userName} join the group chat.`
+            })
 
 
             // callback
             if(typeof callback == "function"){
                 const socketinRoom = await io.in(roomName).fetchSockets();
                 const usercount = socketinRoom.length;
-
                 callback(roomName,usercount);
             }
 
@@ -91,7 +103,7 @@ export function roomHandlers(io,socket){
     })
 
     // Message Handler
-    socket.on("messageFromClient",(data)=>{
+    socket.on("messageFromClient",(data,callback)=>{
         // console.log(socket); // 
         console.log(socket.rooms); // Set(2) { 'EGlDdI7tQVL8oGjNAAAD', 'room1' }
 
@@ -113,13 +125,16 @@ export function roomHandlers(io,socket){
         const [socketid,currentRoom] = Array.from(socket.rooms);
         // console.log(currentRoom);
 
-        if(!currentRoom) return;
+        if(!currentRoom) return callback?.({ok:false,error: "Join a room first."});
 
         io.to(currentRoom).emit("messageFromServer",{
             room: currentRoom,
-            from:socket.id,
-            text: data.getinputval 
+            from:socket.data.userName,
+            text: data.getinputval,
+            at: Date.now()
         });
+
+        callback?.({ok:true});
     })
 
 }

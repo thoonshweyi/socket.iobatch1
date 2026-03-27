@@ -6,8 +6,6 @@ import {Server} from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import {namespaces} from "./data/namespace.js";
-
 import { initSocket } from "./socket/main.js";
 
 // Create express app
