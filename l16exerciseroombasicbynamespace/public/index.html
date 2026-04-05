@@ -84,13 +84,19 @@
         const display = document.querySelector('#display');
 
         let currentNsSocket = null;
-        let currentNsEndpoint = null;
 
         let newli = (msg)=>{
             const li = document.createElement('li');
             li.classList.add('list-group-item');
             li.textContent = msg;
             display.appendChild(li);
+
+            // auto scroll to bottom
+            const chatboxdiv = document.querySelector("#chatbox");
+            chatboxdiv.scrollTop = chatboxdiv.scrollHeight;
+
+            // console.log(chatboxdiv.scrollTop, chatboxdiv.scrollHeight)
+
         }
 
         // Connet to Same Origin (http://localhost:3000)
@@ -108,6 +114,9 @@
         socket.on('nsList',(nsdata)=>{
             // console.log("Namespaes from server",nsdata);
 
+            // clear all btns first (prevent for append btns)
+            nsbtncontainer.innerHTML = ``;
+
             nsdata.forEach((ns)=>{
                 /// <button type="button" class="list-group-item list-group-item-action">Laravel <span class="ns-pills">/laravel</span></button>
                 
@@ -122,7 +131,7 @@
                 btn.appendChild(span)
 
                 btn.addEventListener('click',()=>{
-                    namespaceHandler(ns);
+                    namespaceSwitchHadler(ns);
                 });
 
                 nsbtncontainer.appendChild(btn);
@@ -130,16 +139,45 @@
             });
         });
 
-        function namespaceHandler(namespace){
+        function namespaceSwitchHadler(namespace){
             // console.log(namespace);
+            currentns.textContent = `${namespace.name} (${namespace.endpoint})`;
+            nsdescription.textContent = namespace.description;
 
             // close existing namespace
+            if(currentNsSocket){
+                currentNsSocket.close();
+                currentNsSocket = null;
+            }
 
             // Clear Message
+            display.innerHTML = "";
+
 
             // Mark active in button
+            Array.from(nsbtncontainer.children).forEach(btn=>{
+                btn.classList.remove("active");
+
+                if(btn.textContent.startsWith(namespace.name)){
+                    btn.classList.add('active');
+                }
+            })
 
             // Connect to that namespace
+            currentNsSocket = io(namespace.endpoint);
+
+            currentNsSocket.on('connect',(payload)=>{
+                newli(`Client Print: Connected to namespace ${namespace.endpoint} with id ${currentNsSocket.id}`);
+            });
+
+            currentNsSocket.on('welcome',(payload)=>{
+                newli(`${payload.msg}`);
+            });
+
+            // chat message from server
+            currentNsSocket.on('messageFromServerToNS',(payload)=>{
+                newli(`${payload.from} At ${payload.at}: ${payload.text}`);
+            });
         }
     
         // Handle form submit
@@ -156,10 +194,10 @@
                 return;
             }
 
-            socket.emit("messageFromClient",{getinputval});
-
+            currentNsSocket.emit("messageFromClientToNS",{getinputval});
             input.value = '';
             input.focus();
+
         })
 
 

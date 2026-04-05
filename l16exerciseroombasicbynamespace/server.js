@@ -48,6 +48,37 @@ io.on("connection",(socket)=>{
     socket.emit('nsList',namespaces);
 })
 
+// Create socket.io namespaces dynamically
+namespaces.forEach(namespace=>{
+    const thisNS = io.of(namespace.endpoint);
+
+    thisNS.on('connection',(socket)=>{
+        console.log(`Connected to ${namespace.endpoint}: `,socket.id);
+
+        // Welcome message per namespace
+         socket.emit("welcome",{
+            ns: namespace.endpoint,
+            msg: `Server reply: Welcome to ${namespace.name}.`
+         })
+
+        //  Chat Message Handler with current namespace
+        socket.on("messageFromClientToNS",(data)=>{
+            // console.log(`Message in ${namespace.endpoint}: `,data);
+
+            thisNS.emit('messageFromServerToNS',{
+                ns: namespace.name,
+                from: socket.id,
+                text: data.getinputval,
+                at: new Date().toLocaleTimeString()
+            });
+
+        });
+        
+        socket.on('disconnect',(reason)=>{
+            console.log(`Client ${socket.id} disconnected from ${namespace.endpoint}. Reason: `, reason)
+        });
+    })
+})
 
 // Graceful Shutdown
 process.on("SIGINT",()=>{
