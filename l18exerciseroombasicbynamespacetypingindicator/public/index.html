@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Room Basic by Namespace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <style>
+        body{
+            font-family: system-ui, sans-serif;
+        }
+
+        #ns-buttons button.active{
+            font-weight: bold;
+            border-bottom: 3px solid #000;
+        }
+
+        #chatbox{
+            height: 350px;
+            overflow-y: auto;
+        }
+
+        .ns-pills{
+            font-size: 12px;
+            background-color: #f4f4f4;
+            color: #777;
+            padding: 2px 5px;
+            border-radius: 9px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body class="p-3">
+    <h1 class="mb-3">Socket.IO Room Basic by Namespace</h1>
+
+    <div class="row mb-3">
+        
+        <!-- left side bar  = namespace list -->
+        <div class="col-md-3 mb-3">
+            <h5>Namespaces</h5>
+            <div id="ns-buttons" class="list-group">
+                <!-- <button type="button" class="list-group-item list-group-item-action">Laravel <span class="ns-pills">/laravel</span></button> -->
+            </div>
+        </div>
+
+        <!-- right content area = chart area -->
+        <div class="col-md-9">
+            <div class="mb-2">
+                <h5>Current Namespace: <span id="current-ns">none</span></h5>
+                <p id="ns-description" class="text-muted">none</p>
+                <p id="ns-usercount" class="text-muted fw-semibold mb-2">Namespace Users: 0</p>
+                <p id="ns-typingstatus" class="text-muted">abc</p>
+            </div>
+
+            <div id="chatbox" class="bg-light border rounded p-2 mb-2">
+                <ul id="display" class="list-group list-group-flush">
+                    
+                </ul>
+            </div>
+
+            <hr/>
+
+            <form id="messageform" action="" class="mb-0">
+                <div class="input-group">
+                    <input type="text" name="usermessage" id="usermessage" class="form-control" placeholder="Enter your message"/>
+
+                    <button type="submit" class="btn btn-primary">Send</button>
+                </div>
+            </form>
+
+        </div>
+
+    </div>
+
+
+
+
+ 
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+        const currentns = document.querySelector('#current-ns')
+        const nsdescription = document.querySelector('#ns-description');
+        const nsbtncontainer = document.querySelector('#ns-buttons')
+        const display = document.querySelector('#display');
+        const nsusercount = document.querySelector('#ns-usercount');
+
+        const typingstatus = document.querySelector("#ns-typingstatus");
+        let typingtimeout = null;
+        const userinput = document.querySelector('#usermessage');
+
+        let currentNsSocket = null;
+
+        let newli = (msg)=>{
+            const li = document.createElement('li');
+            li.classList.add('list-group-item');
+            li.textContent = msg;
+            display.appendChild(li);
+
+            // auto scroll to bottom
+            const chatboxdiv = document.querySelector("#chatbox");
+            chatboxdiv.scrollTop = chatboxdiv.scrollHeight;
+
+            // console.log(chatboxdiv.scrollTop, chatboxdiv.scrollHeight)
+
+        }
+
+        // Connet to Same Origin (http://localhost:3000)
+        const socket = io(); // or io (http://localhost:3000), default namespace "/"
+        console.log(socket);
+
+
+
+        socket.on("connect", () => {
+           console.log(`Connected to /, My ID:  ${socket.id}`);
+        });
+      
+        
+        // Receive Namespace List
+        socket.on('nsList',(nsdata)=>{
+            // console.log("Namespaes from server",nsdata);
+
+            // clear all btns first (prevent for append btns)
+            nsbtncontainer.innerHTML = ``;
+
+            nsdata.forEach((ns)=>{
+                /// <button type="button" class="list-group-item list-group-item-action">Laravel <span class="ns-pills">/laravel</span></button>
+                
+                const btn = document.createElement('button');
+                btn.type = "button";
+                btn.className = "list-group-item list-group-item-action"
+                btn.textContent = ns.name;
+
+                const span = document.createElement('span');
+                span.classList.add('ns-pills');
+                span.textContent = ns.endpoint;
+                btn.appendChild(span)
+
+                btn.addEventListener('click',()=>{
+                    namespaceSwitchHadler(ns);
+                });
+
+                nsbtncontainer.appendChild(btn);
+
+            });
+        });
+
+        function namespaceSwitchHadler(namespace){
+            // console.log(namespace);
+            currentns.textContent = `${namespace.name} (${namespace.endpoint})`;
+            nsdescription.textContent = namespace.description;
+
+            // close existing namespace
+            if(currentNsSocket){
+                currentNsSocket.close();
+                currentNsSocket = null;
+            }
+
+            // Clear Message
+            display.innerHTML = "";
+
+
+            // Mark active in button
+            Array.from(nsbtncontainer.children).forEach(btn=>{
+                btn.classList.remove("active");
+
+                if(btn.textContent.startsWith(namespace.name)){
+                    btn.classList.add('active');
+                }
+            })
+
+            // Connect to that namespace
+            currentNsSocket = io(namespace.endpoint);
+
+            currentNsSocket.on('connect',(payload)=>{
+                newli(`Client Print: Connected to namespace ${namespace.endpoint} with id ${currentNsSocket.id}`);
+            });
+
+            currentNsSocket.on('welcome',(payload)=>{
+                newli(`${payload.msg}`);
+            });
+
+            // chat message from server
+            currentNsSocket.on('messageFromServerToNS',(payload)=>{
+                newli(`${payload.from} At ${payload.at}: ${payload.text}`);
+            });
+
+            // receive
+            currentNsSocket.on('userCountFromServerToNS',(payload)=>{
+                if(namespace.endpoint === payload.ns){
+                    nsusercount.textContent = `Namespace Users: ${payload.count}`;
+                }
+            })
+
+            
+
+            // Typing indicator from users
+            currentNsSocket.on("typingFromServer",(payload)=>{
+                console.log("type server");
+                typingstatus.textContent = `${payload.from} is typing....`;
+
+                if(typingtimeout) clearTimeout(typingtimeout);
+
+                typingtimeout = setTimeout(()=>{
+                    typingstatus.textContent = "";
+                },2000)
+            }); 
+            currentNsSocket.on("stoptypingFromServer",(payload)=>{
+                typingstatus.textContent = "";
+            }); 
+        }
+
+
+        // typing emit
+        userinput.addEventListener('input',()=>{
+            if(!currentNsSocket) return;
+
+            const getinputval = userinput.value.trim();
+            if(getinputval.length > 0){
+                currentNsSocket.emit("typingFromClient");
+            }else{
+                currentNsSocket.emit("stoptypingFromClient");
+            }
+        });
+    
+        // Handle form submit
+        document.querySelector("#messageform").addEventListener("submit",(e)=>{
+            e.preventDefault();
+
+            const input = document.querySelector("#usermessage");
+            const getinputval = input.value.trim();
+            console.log(getinputval);
+            if(!getinputval) return;
+
+            if(!currentNsSocket){
+                newli(`Please select a namespace first.`);
+                return;
+            }
+
+            currentNsSocket.emit("messageFromClientToNS",{getinputval});
+
+            socket.emit("stoptypingFromClient");
+
+            input.value = '';
+            input.focus();
+
+        })
+
+
+
+        // Receive message from server
+        // socket.on("messageFromServer",(payload)=>{
+        //     newli(`From ${payload.from} : ${payload.text}`);
+        // });
+   
+        // Handle disconnect
+        socket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        socket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->
