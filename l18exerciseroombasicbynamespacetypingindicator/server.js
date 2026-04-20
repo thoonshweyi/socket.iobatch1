@@ -86,15 +86,18 @@ namespaces.forEach(namespace=>{
 
         });
 
+        // Typing from client
         socket.on("typingFromClient",()=>{
-            socket.broadcast.emit("typingFromServer",{
+            socket.broadcast.emit("typingFromServerNS",{
+                ns: namespace.endpoint,
                 from: socket.id
             });
         });
 
-
-        socket.on("stoptypingFromClient",()=>{
-            socket.broadcast.emit("stoptypingFromServer",{
+        // Stop typing from client
+        socket.on("stopTypingFromClientNS",()=>{
+            socket.broadcast.emit("stoptypingFromServerNS",{
+                ns: namespace.endpoint,
                 from: socket.id
             });
         });
@@ -105,6 +108,12 @@ namespaces.forEach(namespace=>{
 
             // after disconnect, send user count to everyone in this namespace
             emitNamespaceCount(thisNS,namespace.endpoint);
+
+            // remove typing indicator for disconnected user
+            socket.broadcast.emit("stoptypingFromServerNS",{
+                ns: namespace.endpoint,
+                from: socket.id
+            });
         });
     })
 })

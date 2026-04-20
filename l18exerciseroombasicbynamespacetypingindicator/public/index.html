@@ -49,7 +49,7 @@
                 <h5>Current Namespace: <span id="current-ns">none</span></h5>
                 <p id="ns-description" class="text-muted">none</p>
                 <p id="ns-usercount" class="text-muted fw-semibold mb-2">Namespace Users: 0</p>
-                <p id="ns-typingstatus" class="text-muted">abc</p>
+                <p id="ns-typingstatus" class="text-muted"></p>
             </div>
 
             <div id="chatbox" class="bg-light border rounded p-2 mb-2">
@@ -87,10 +87,11 @@
         const nsusercount = document.querySelector('#ns-usercount');
 
         const typingstatus = document.querySelector("#ns-typingstatus");
-        let typingtimeout = null;
         const userinput = document.querySelector('#usermessage');
 
         let currentNsSocket = null;
+
+        let typingtimeout = null;
 
         let newli = (msg)=>{
             const li = document.createElement('li');
@@ -186,7 +187,7 @@
                 newli(`${payload.from} At ${payload.at}: ${payload.text}`);
             });
 
-            // receive
+            // receive namespace users count
             currentNsSocket.on('userCountFromServerToNS',(payload)=>{
                 if(namespace.endpoint === payload.ns){
                     nsusercount.textContent = `Namespace Users: ${payload.count}`;
@@ -195,18 +196,23 @@
 
             
 
-            // Typing indicator from users
-            currentNsSocket.on("typingFromServer",(payload)=>{
-                console.log("type server");
+            // receive typing
+            currentNsSocket.on("typingFromServerNS",(payload)=>{
+                if(namespace.endpoint != payload.ns) return;
+
                 typingstatus.textContent = `${payload.from} is typing....`;
 
-                if(typingtimeout) clearTimeout(typingtimeout);
+                // if(typingtimeout) clearTimeout(typingtimeout);
 
-                typingtimeout = setTimeout(()=>{
-                    typingstatus.textContent = "";
-                },2000)
+                // typingtimeout = setTimeout(()=>{
+                //     typingstatus.textContent = "";
+                // },2000)
             }); 
-            currentNsSocket.on("stoptypingFromServer",(payload)=>{
+
+            // receive stop typing
+            currentNsSocket.on("stoptypingFromServerNS",(payload)=>{
+                if(namespace.endpoint != payload.ns) return;
+
                 typingstatus.textContent = "";
             }); 
         }
@@ -216,12 +222,18 @@
         userinput.addEventListener('input',()=>{
             if(!currentNsSocket) return;
 
-            const getinputval = userinput.value.trim();
-            if(getinputval.length > 0){
+            const hastext = userinput.value.trim().length > 0;
+            if(hastext){
                 currentNsSocket.emit("typingFromClient");
             }else{
-                currentNsSocket.emit("stoptypingFromClient");
+                currentNsSocket.emit("stopTypingFromClientNS");
             }
+
+            if(typingtimeout) clearTimeout(typingtimeout);
+
+            typingtimeout = setTimeout(()=>{
+                currentNsSocket.emit("stopTypingFromClientNS");
+            },2000)
         });
     
         // Handle form submit
@@ -240,7 +252,7 @@
 
             currentNsSocket.emit("messageFromClientToNS",{getinputval});
 
-            socket.emit("stoptypingFromClient");
+            currentNsSocket.emit("stopTypingFromClientNS");
 
             input.value = '';
             input.focus();
