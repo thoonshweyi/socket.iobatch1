@@ -54,24 +54,31 @@ function emitNamespaceCount(namespaceInstance,endpoint){
 function getRoomCount(namespaceInstance,rooName){
     if(!roomName) return;
 
-    return ;
+    console.log(namespaceInstance.adapter)
+
+    return namespaceInstance.adapter.rooms.get(rooName)?.size ?? 0;
 }
 
 function emitRoomCount(namespaceInstance,roomName){
     if(!roomName) return;
 
-    const arrsockets = namespaceInstance.in(roomName).fetchSockets();
-    const count = arrsockets.length;
+    // const arrsockets = namespaceInstance.in(roomName).fetchSockets();
+    // const count = arrsockets.length;
 
-    // namespaceInstance.to(roomName).emit('roomUsers',{
+    // namespaceInstance.to(roomName).emit('userCountFromServerToNSRoom',{
     //     roomname: roomName,
     //     count 
     // })
 
-    namespaceInstance.in(roomName).emit('roomUsers',{
+    // namespaceInstance.in(roomName).emit('userCountFromServerToNSRoom',{
+    //     roomname: roomName,
+    //     count 
+    // })
+
+    namespaceInstance.to(roomName).emit("userCountFromServerToNSRoom",{
         roomname: roomName,
-        count 
-    })
+        count: getRoomCount(namespaceInstance,roomName)
+    });
 }
 // End Helper Function
 
@@ -101,15 +108,30 @@ namespaces.forEach(namespace=>{
 
         // send user count to everyone in this namespace
         emitNamespaceCount(thisNS,namespace.endpoint);
+        
 
         // Set profile
 
         // Join room
+        socket.on("joinRoomFromClient",(roomName)=>{
+            try{
             // leave old room
+            emitRoomCount(thisNS,roomName)
+            
             // join new room
-            // update room user countn
+            
+            // update room user count
+            emitRoomCount(thisNS,roomName)
+            
+            // notify others in room
+
             // callback
 
+            }catch(err){
+                console.error("joinRoomFromClient error: ",err)
+            }
+        })
+          
 
         // Room Message
 

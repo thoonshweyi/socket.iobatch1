@@ -264,6 +264,13 @@
                 }
             })
 
+            // receive namespace room users count
+            currentNsSocket.on('userCountFromServerToNSRoom',(payload)=>{
+                if(currentRoom === payload.roomname){
+                    roomusercountP.textContent = `Room Users: ${payload.count}`;
+                }
+            })
+
             
 
             // receive typing
@@ -299,13 +306,25 @@
         document.querySelector('#join-room-btn').addEventListener('click',()=>{
             const selectedroom = roomselect.value;
 
+            if(!currentNsSocket){
+                newli('Please select a namespace first.');
+                return;
+            }
+
+            if(!selectedroom){
+                newli('Please select a room');
+                return;
+            }
+
             // choose namespace
+            currentNsSocket.emit('joinRoomFromClient',selectedroom,(res)=>{
+                currentRoom = res.roomname;
+                currentroomP.textContent = `Current Room: ${res.roomname}`;
+                roomusercountP.textContent = `Room Users: ${res.count}`;
 
-            // choose room
+                newli(`System: You joined ${res.roomname}`);
+            });
 
-            currentRoom = selectedroom;
-            currentroomP.textContent = `Current Room: ${currentRoom}`;
-            roomusercountP.textContent = `Room Users: 0`;
         });
 
         // Emit typing events
