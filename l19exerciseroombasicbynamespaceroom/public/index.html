@@ -94,7 +94,7 @@
 
                 <div class="card">
                     <div class="card-body">
-                        <p id="typingstatus" class="text-muted"></p>
+                        <p id="typing-status" class="text-muted"></p>
                         <div id="chat-box" class="bg-light border rounded p-2 mb-2">
                             <ul id="display" class="list-group list-group-flush">
                                 
@@ -139,7 +139,7 @@
         const typingstatus = document.querySelector("#typing-status");
 
         const username = document.querySelector('#username');
-        const profilestatus = document.querySelector("profile-status");
+        const profilestatus = document.querySelector("#profile-status");
 
         let currentNsSocket = null;
 
@@ -292,6 +292,10 @@
 
                 typingstatus.textContent = "";
             }); 
+
+            currentNsSocket.on("systemMessageFromServer",(payload)=>{
+                newli(`System : ${payload.text}`);
+            });
         }
 
 
@@ -299,7 +303,20 @@
         document.querySelector('#set-profile-btn').addEventListener('click',()=>{
             const name = username.value.trim();
 
-            profilestatus.textContent = `Name: ${name}`;
+            if(!currentNsSocket){
+                newli(`Please select a namespace first`);
+                return;
+            }
+
+            currentNsSocket.emit('setProfileFromClient',{name},(res)=>{
+                if(!res.ok){
+                    newli(`Set profile failed: ${res.error}`);
+                }
+                profilestatus.textContent = `Name: ${res.name}`;
+                newli(`System: :Your name is now ${res.name}`);
+         
+            })
+
         });
 
         // Join room
@@ -318,6 +335,12 @@
 
             // choose namespace
             currentNsSocket.emit('joinRoomFromClient',selectedroom,(res)=>{
+
+                if(!res?.ok){
+                    newli(`Join room failed: ${res.error}`);
+                    return;
+                }
+
                 currentRoom = res.roomname;
                 currentroomP.textContent = `Current Room: ${res.roomname}`;
                 roomusercountP.textContent = `Room Users: ${res.count}`;
@@ -329,7 +352,7 @@
 
         // Emit typing events
         userinput.addEventListener('input',()=>{
-            if(!currentNsSocket) return;
+            if(!currentNsSocket || !currentRoom) return;
 
             const hastext = userinput.value.trim().length > 0;
             if(hastext){
@@ -349,15 +372,21 @@
         document.querySelector("#message-form").addEventListener("submit",(e)=>{
             e.preventDefault();
 
-            const input = document.querySelector("#usermessage");
+            const input = document.querySelector("#user-message");
             const getinputval = input.value.trim();
             console.log(getinputval);
-            if(!getinputval) return;
 
             if(!currentNsSocket){
                 newli(`Please select a namespace first.`);
                 return;
             }
+
+            if(!currentRoom){
+                newli(`Please join a room first.`);
+                return;
+            }
+
+            if(!getinputval) return;
 
             currentNsSocket.emit("messageFromClientToNS",{getinputval});
 
@@ -365,10 +394,7 @@
 
             input.value = '';
             input.focus();
-
-        })
-
-
+        });
 
         // Receive message from server
         rootsocket.on("messageFromServer",(payload)=>{

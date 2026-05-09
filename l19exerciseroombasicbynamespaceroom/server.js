@@ -51,12 +51,12 @@ function emitNamespaceCount(namespaceInstance,endpoint){
 }
 
 // room users count inside namespace
-function getRoomCount(namespaceInstance,rooName){
+function getRoomCount(namespaceInstance,roomName){
     if(!roomName) return;
 
     console.log(namespaceInstance.adapter)
 
-    return namespaceInstance.adapter.rooms.get(rooName)?.size ?? 0;
+    return namespaceInstance.adapter.rooms.get(roomName)?.size ?? 0;
 }
 
 function emitRoomCount(namespaceInstance,roomName){
@@ -111,24 +111,86 @@ namespaces.forEach(namespace=>{
         
 
         // Set profile
+        socket.on("setProfileFromClient",(data,callback)=>{
+            const name = String(data?.name ?? "").trim().slice(0,20);
+
+            if(!name){
+                return callback?.({
+                    ok: false,
+                    error: "Name is required"
+                })
+            }
+
+            socket.data.userName = name;
+            callback?.({
+                ok: true,
+                name
+            });
+        });
 
         // Join room
-        socket.on("joinRoomFromClient",(roomName)=>{
+        socket.on("joinRoomFromClient",(roomName,callback)=>{
             try{
+
+            roomName = String(roomName || "").trim();
+            if(!roomName){   
+                return callback?.({
+                    ok: false,
+                    error: "Room Name required."
+                });
+            }
+
+            if(!namespace.rooms.includes(roomName)){   
+                return callback?.({
+                    ok: false,
+                    error: "Invalid room name."
+                });
+            }
+
+            const prevRoom = socket.data.currentRoom;
+
             // leave old room
-            emitRoomCount(thisNS,roomName)
+            if(prevRoom && prevRoom !== roomName){
+
+                socket.to(prevRoom).emit('systemMessageFromServer',{
+                    text: `${socket.data.userName} left ${prevRoom}`
+                });
+
+                socket.leave(prevRoom);
+
+                emitRoomCount(thisNS,prevRoom);
+            }
+
             
             // join new room
+            if(socket.data.currentRoom !== roomName){
+                socket.join(roomName);
+                socket.data.currentRoom = roomName;
+            }
             
             // update room user count
-            emitRoomCount(thisNS,roomName)
+            emitRoomCount(thisNS,roomName);
+
+            socket.data.userName = socket.data.userName ||socket.id;
             
             // notify others in room
+            socket.to(roomName).emit('systemMessageFromServer',{
+                text: `${socket.data.userName} jointed ${roomName}`
+            });
 
-            // callback
+            // obj for response
+            callback?.({
+                ok: true,
+                roomname: roomName,
+                count: getRoomCount(thisNS,roomName)
+            });
 
             }catch(err){
                 console.error("joinRoomFromClient error: ",err)
+                callback?.({
+                    ok: false,
+                    error: "Joined Failed."
+                })
             }
         })
           
@@ -145,7 +207,7 @@ namespaces.forEach(namespace=>{
         socket.on("messageFromClientToNS",(data)=>{
             // console.log(`Message in ${namespace.endpoint}: `,data);
 
-            socket.broadcast.emit('messageFromServerToNS',{
+            thisNS.broadcast.emit('messageFromServerToNS',{
                 ns: namespace.name,
                 from: socket.id,
                 text: data.getinputval,
