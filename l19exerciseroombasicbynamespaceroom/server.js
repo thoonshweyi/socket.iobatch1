@@ -96,6 +96,8 @@ namespaces.forEach(namespace=>{
     thisNS.on('connection',(socket)=>{
         console.log(`Connected to ${namespace.endpoint}: `,socket.id);
 
+        socket.data.userName = `User-${socket.id.slice(0,4)}`;
+
         // Welcome message per namespace
          socket.emit("welcome",{
             ns: namespace.endpoint,
@@ -204,15 +206,29 @@ namespaces.forEach(namespace=>{
             // update room user count
 
         //  Chat Message Handler with current namespace
-        socket.on("messageFromClientToNS",(data)=>{
+        socket.on("messageFromClientToNS",(data,callback)=>{
             // console.log(`Message in ${namespace.endpoint}: `,data);
 
-            thisNS.broadcast.emit('messageFromServerToNS',{
-                ns: namespace.name,
-                from: socket.id,
+            const room = socket.data.currentRoom;
+            if(!room){
+                return callback({ok:false, error: "Join a foom first"});
+            }
+
+            const text = String(data?.getinputval ?? "").trim();
+
+            if(!text){
+                return callback({ok:false,error: "Empty message"});
+            }
+
+            thisNS.emit('messageFromServerToNS',{
+                ns: namespace.endpoint,
+                room,
+                from: socket.data.userName,
                 text: data.getinputval,
                 at: new Date().toLocaleTimeString()
             });
+
+            callback({ok:true});
 
         });
 
@@ -220,7 +236,7 @@ namespaces.forEach(namespace=>{
         socket.on("typingFromClient",()=>{
             socket.broadcast.emit("typingFromServerNS",{
                 ns: namespace.endpoint,
-                from: socket.id
+                from: socket.data.userName
             });
         });
 
@@ -228,7 +244,7 @@ namespaces.forEach(namespace=>{
         socket.on("stopTypingFromClientNS",()=>{
             socket.broadcast.emit("stoptypingFromServerNS",{
                 ns: namespace.endpoint,
-                from: socket.id
+                from: socket.data.userName
             });
         });
 
@@ -242,7 +258,7 @@ namespaces.forEach(namespace=>{
             // remove typing indicator for disconnected user
             socket.broadcast.emit("stoptypingFromServerNS",{
                 ns: namespace.endpoint,
-                from: socket.id
+                from: socket.data.userName
             });
         });
     })

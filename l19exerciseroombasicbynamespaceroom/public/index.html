@@ -271,6 +271,9 @@
                 }
             })
 
+            currentNsSocket.on("systemMessageFromServer",(payload)=>{
+                newli(`System : ${payload.text}`);
+            });
             
 
             // receive typing
@@ -293,9 +296,7 @@
                 typingstatus.textContent = "";
             }); 
 
-            currentNsSocket.on("systemMessageFromServer",(payload)=>{
-                newli(`System : ${payload.text}`);
-            });
+           
         }
 
 
@@ -386,9 +387,14 @@
                 return;
             }
 
+            currentNsSocket.emit("messageFromClientToNS",{getinputval},(res)=>{
+                if(!res?.ok){
+                    newli(`Send failed: ${res.error}`);
+                }
+            });
+
             if(!getinputval) return;
 
-            currentNsSocket.emit("messageFromClientToNS",{getinputval});
 
             currentNsSocket.emit("stopTypingFromClientNS");
 
