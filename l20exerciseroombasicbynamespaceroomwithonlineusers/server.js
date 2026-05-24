@@ -239,7 +239,8 @@ namespaces.forEach(namespace=>{
                 return callback({ok:false,error: "Empty message"});
             }
 
-            thisNS.emit('messageFromServerToNS',{
+            // server to room client for display
+            thisNS.to(room).emit('messageFromServerToNS',{
                 ns: namespace.endpoint,
                 room,
                 from: socket.data.userName,
@@ -253,7 +254,10 @@ namespaces.forEach(namespace=>{
 
         // Typing from client
         socket.on("typingFromClient",()=>{
-            socket.broadcast.emit("typingFromServerNS",{
+            const room = socket.data.currentRoom;
+            if(!room) return;
+
+            socket.to(room).emit("typingFromServerNS",{
                 ns: namespace.endpoint,
                 from: socket.data.userName
             });
@@ -261,7 +265,10 @@ namespaces.forEach(namespace=>{
 
         // Stop typing from client
         socket.on("stopTypingFromClientNS",()=>{
-            socket.broadcast.emit("stoptypingFromServerNS",{
+            const room = socket.data.currentRoom;
+            if(!room) return;
+
+            socket.to(room).emit("stoptypingFromServerNS",{
                 ns: namespace.endpoint,
                 from: socket.data.userName
             });

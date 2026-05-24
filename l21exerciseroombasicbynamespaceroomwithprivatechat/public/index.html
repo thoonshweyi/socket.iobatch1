@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Room Basic by Namespace and  Room</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <style>
+        body{
+            font-family: system-ui, sans-serif;
+        }
+
+        #ns-buttons button.active{
+            font-weight: bold;
+            border-bottom: 3px solid #000;
+        }
+
+        #chat-box{
+            height: 350px;
+            overflow-y: auto;
+        }
+
+        .ns-pills{
+            font-size: 12px;
+            background-color: #f4f4f4;
+            color: #777;
+            border-radius: 9px;
+
+            margin-left: 10px;
+            padding: 2px 5px;
+        }
+    </style>
+</head>
+<body class="p-3">
+    <div class="container-fluid">
+        <h6 class="mb-3">Socket.IO Room Basic by Namespace and Room</h6>
+
+        <div class="row">
+            <!-- LEFT PANNEL -->
+            <div class="col-md-3 mb-3">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6>Set Profile</h6>
+                        <div class="input-group mb-2">
+                            <input type="text" id="username" class="form-control" placeholder="Enter your name" />
+                            <button id="set-profile-btn" class="btn btn-dark">Set</button>
+                        </div>
+                        <small id="profile-status" class="text-muted mb-0"></small>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h6>Namespaces</h6>
+                        <div id="ns-buttons" class="list-group">
+                            <!-- <button type="button" class="list-group-item list-group-item-action">Laravel <span class="ns-pills">/laravel</span></button> -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h6>Online Users</h6>
+                        <ul id="online-users" class="list-group">
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h6>Private Message</h6>
+
+                        <input type="text" id="private-to" class="form-control mb-2" placeholder="Receiver Socket ID" />
+                        <input type="text" id="private-text" class="form-control mb-2" placeholder="Private message" />
+
+                        <button type="button" id="send-private-btn" class="w-100 btn btn-warning">Send Private Message</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANNEL -->
+            <div class="col-md-9">
+                <div class="card mb-3">
+                    <div class="card-body">
+                    
+                        <div class="mb-2">
+                            <h6>Current Namespace: <span id="current-ns">none</span></h6>
+                            <p id="ns-description" class="text-muted mb-2">none</p>
+                            <p id="ns-usercount" class="text-muted fw-semibold mb-2">Namespace Users: 0</p>
+                            <p id="current-room" class="text-muted fw-semibold mb-2">Current Room: (none)</p>
+
+
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-6">
+                                    <select id="room-select" class="form-select">
+                                        <option selected disabled>Select room</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <button id="join-room-btn" class="w-100 btn btn-primary">Join Room</button>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <p id="room-users-count" class="fw-semibold text-success">Room Users: 0</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <p id="typing-status" class="text-muted"></p>
+                        <div id="chat-box" class="bg-light border rounded p-2 mb-2">
+                            <ul id="display" class="list-group list-group-flush">
+                                
+                            </ul>
+                        </div>
+
+                        <form id="message-form" action="" class="mb-0">
+                            <div class="input-group">
+                                <input type="text" name="user-message" id="user-message" class="form-control" placeholder="Enter your message...." autocomplete="off"/>
+
+                                <button type="submit" class="btn btn-primary">Send</button>
+                            </div>
+                        </form>
+
+                        <button type="button" id="clear-btn" class="btn btn-outline-secondary btn-sm mt-3">Clear Message</button>
+
+                    </div>
+                </div>
+              
+                <hr/>
+
+            </div>
+
+        </div>
+    </div>
+ 
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+        const currentnsSpan = document.querySelector('#current-ns')
+        const nsdescriptionP = document.querySelector('#ns-description');
+        const nsusercountP = document.querySelector('#ns-usercount');
+        const nsbtncontainer = document.querySelector('#ns-buttons')
+        const display = document.querySelector('#display');
+
+        const roomselect =  document.querySelector('#room-select');
+        const currentroomP = document.querySelector('#current-room');
+        const roomusercountP = document.querySelector('#room-users-count')
+
+        const userinput = document.querySelector('#user-message');
+        const typingstatus = document.querySelector("#typing-status");
+
+        const username = document.querySelector('#username');
+        const profilestatus = document.querySelector("#profile-status");
+
+        const onlineuserul = document.querySelector('#online-users');
+
+        let currentNsSocket = null;
+
+        let currentRoom = null;
+
+        let typingtimeout = null;
+
+        let newli = (msg)=>{
+            const li = document.createElement('li');
+            li.classList.add('list-group-item');
+            li.textContent = msg;
+            display.appendChild(li);
+
+            // auto scroll to bottom
+            const chatboxdiv = document.querySelector("#chat-box");
+            chatboxdiv.scrollTop = chatboxdiv.scrollHeight;
+        }
+
+        let clearchatUI = ()=>{
+            display.innerHTML = "";
+            typingstatus.textContent = "";
+            
+            currentRoom = null;
+
+            currentroomP.textContent = "Current Room: (none)";
+            roomusercountP.textContent = "Room Users: 0"
+        }
+
+        // Connet to Same Origin (http://localhost:3000)
+        const rootsocket = io(); // or io (http://localhost:3000), default namespace "/"
+
+        rootsocket.on("connect", () => {
+           console.log(`Connected to /, My ID:  ${rootsocket.id}`);
+        });
+      
+        
+        // Receive Namespace List
+        rootsocket.on('nsList',(nsdata)=>{
+            // console.log("Namespaes from server",nsdata);
+
+            // clear all btns first (prevent for append btns)
+            nsbtncontainer.innerHTML = ``;
+
+            nsdata.forEach((ns)=>{
+                /// <button type="button" class="list-group-item list-group-item-action">Laravel <span class="ns-pills">/laravel</span></button>
+                
+                const btn = document.createElement('button');
+                btn.type = "button";
+                btn.className = "list-group-item list-group-item-action"
+                btn.textContent = ns.name;
+
+                const span = document.createElement('span');
+                span.classList.add('ns-pills');
+                span.textContent = ns.endpoint;
+                btn.appendChild(span)
+
+                btn.addEventListener('click',()=>{
+                    namespaceSwitchHandler(ns);
+                });
+
+                nsbtncontainer.appendChild(btn);
+
+            });
+        });
+
+        // Switch namespace
+        function namespaceSwitchHandler(namespace){
+            // console.log(namespace);
+            currentnsSpan.textContent = `${namespace.name} (${namespace.endpoint})`;
+            nsdescriptionP.textContent = namespace.description;
+
+            // close existing namespace
+            if(currentNsSocket){
+                currentNsSocket.close();
+                currentNsSocket = null;
+            }
+
+            // Clear Message
+            display.innerHTML = "";
+
+
+            // Mark active in button
+            Array.from(nsbtncontainer.children).forEach(btn=>{
+                btn.classList.remove("active");
+
+                if(btn.textContent.startsWith(namespace.name)){
+                    btn.classList.add('active');
+                }
+            })
+
+            // Connect to that namespace
+            currentNsSocket = io(namespace.endpoint);
+
+            currentNsSocket.on('connect',(payload)=>{
+                newli(`Client Print: Connected to namespace ${namespace.endpoint} with id ${currentNsSocket.id}`);
+            });
+
+            currentNsSocket.on('welcome',(payload)=>{
+                newli(`${payload.msg}`);
+            });
+
+            // room print
+            currentNsSocket.on('roomList',(rooms)=>{
+                roomselect.innerHTML = `<option selected disabled>Select room</option>`;
+                rooms.forEach(room=>{
+                    const option = document.createElement('option');
+                    option.value = room;
+                    option.textContent = room;
+                    roomselect.appendChild(option);
+                })
+            });
+
+            // chat message from server
+            currentNsSocket.on('messageFromServerToNS',(payload)=>{
+                newli(`${payload.from} At ${payload.at}: ${payload.text}`);
+            });
+
+            // receive namespace users count
+            currentNsSocket.on('userCountFromServerToNS',(payload)=>{
+                if(namespace.endpoint === payload.ns){
+                    nsusercountP.textContent = `Namespace Users: ${payload.count}`;
+                }
+            })
+
+            // receive namespace room users count
+            currentNsSocket.on('userCountFromServerToNSRoom',(payload)=>{
+                if(currentRoom === payload.roomname){
+                    roomusercountP.textContent = `Room Users: ${payload.count}`;
+                }
+            })
+
+            currentNsSocket.on("systemMessageFromServer",(payload)=>{
+                newli(`System : ${payload.text}`);
+            });
+            
+
+            // receive typing
+            currentNsSocket.on("typingFromServerNS",(payload)=>{
+                if(namespace.endpoint != payload.ns) return;
+
+                typingstatus.textContent = `${payload.from} is typing....`;
+
+                // if(typingtimeout) clearTimeout(typingtimeout);
+
+                // typingtimeout = setTimeout(()=>{
+                //     typingstatus.textContent = "";
+                // },2000)
+            }); 
+
+            // receive stop typing
+            currentNsSocket.on("stoptypingFromServerNS",(payload)=>{
+                if(namespace.endpoint != payload.ns) return;
+
+                typingstatus.textContent = "";
+            }); 
+
+            // Online Users
+            currentNsSocket.on("onlineUsersFromServer",(users)=>{
+                onlineuserul.innerHTML = "";
+
+                users.forEach(user=>{
+                    const li = document.createElement('li');
+                    li.className = "list-group list-group-item small";
+                    li.textContent = `${user.name} ${user.room ?  "(" + user.room + ")" : ""}`;
+                    onlineuserul.appendChild(li);
+                });
+            }); 
+
+
+            // Private Message
+            currentNsSocket.on('privateMessageFromServer',(payload)=>{
+                newli(`[Private]: ${payload.from} at ${payload.at}: ${payload.text} `);
+            });
+
+           
+        }
+
+
+        // Set Profile
+        document.querySelector('#set-profile-btn').addEventListener('click',()=>{
+            const name = username.value.trim();
+
+            if(!currentNsSocket){
+                newli(`Please select a namespace first`);
+                return;
+            }
+
+            currentNsSocket.emit('setProfileFromClient',{name},(res)=>{
+                if(!res.ok){
+                    newli(`Set profile failed: ${res.error}`);
+                }
+                profilestatus.textContent = `Name: ${res.name}`;
+                newli(`System: :Your name is now ${res.name}`);
+         
+            })
+
+        });
+
+        // Join room
+        document.querySelector('#join-room-btn').addEventListener('click',()=>{
+            const selectedroom = roomselect.value;
+
+            if(!currentNsSocket){
+                newli('Please select a namespace first.');
+                return;
+            }
+
+            if(!selectedroom){
+                newli('Please select a room');
+                return;
+            }
+
+            // choose namespace
+            currentNsSocket.emit('joinRoomFromClient',selectedroom,(res)=>{
+
+                if(!res?.ok){
+                    newli(`Join room failed: ${res.error}`);
+                    return;
+                }
+
+                currentRoom = res.roomname;
+                currentroomP.textContent = `Current Room: ${res.roomname}`;
+                roomusercountP.textContent = `Room Users: ${res.count}`;
+
+                newli(`System: You joined ${res.roomname}`);
+            });
+
+        });
+
+        // Emit typing events
+        userinput.addEventListener('input',()=>{
+            if(!currentNsSocket || !currentRoom) return;
+
+            const hastext = userinput.value.trim().length > 0;
+            if(hastext){
+                currentNsSocket.emit("typingFromClient");
+            }else{
+                currentNsSocket.emit("stopTypingFromClientNS");
+            }
+
+            if(typingtimeout) clearTimeout(typingtimeout);
+
+            typingtimeout = setTimeout(()=>{
+                currentNsSocket.emit("stopTypingFromClientNS");
+            },2000)
+        });
+    
+        // Handle form submit
+        document.querySelector("#message-form").addEventListener("submit",(e)=>{
+            e.preventDefault();
+
+            const input = document.querySelector("#user-message");
+            const getinputval = input.value.trim();
+            console.log(getinputval);
+
+            if(!currentNsSocket){
+                newli(`Please select a namespace first.`);
+                return;
+            }
+
+            if(!currentRoom){
+                newli(`Please join a room first.`);
+                return;
+            }
+
+            currentNsSocket.emit("messageFromClientToNS",{getinputval},(res)=>{
+                if(!res?.ok){
+                    newli(`Send failed: ${res.error}`);
+                }
+            });
+
+            if(!getinputval) return;
+
+
+            currentNsSocket.emit("stopTypingFromClientNS");
+
+            input.value = '';
+            input.focus();
+        });
+
+        // Receive message from server
+        rootsocket.on("messageFromServer",(payload)=>{
+            newli(`From ${payload.from} : ${payload.text}`);
+        });
+
+        // Private Message
+        document.querySelector('#send-private-btn').addEventListener('click',()=>{
+            if(!currentNsSocket){
+                newli("Please select namepace first");
+                return;
+            }
+
+            const to = document.querySelector('#private-to').value.trim();
+            const text = document.querySelector('#private-text').value.trim();
+
+            currentNsSocket.emit("privateMessageFromClient",{to,text},(res)=>{
+                // newli(`You Send Private Message To:`);
+
+                if(!res?.ok){
+                    newli(`Private Error: ${res.error}`);
+                    return;
+                }
+
+                document.querySelector('#private-text').value = "";
+            })
+        });
+
+        // Clear message
+        document.querySelector('#clear-btn').addEventListener('click',()=>{
+            display.innerHTML = "";
+            typingstatus.textContent = "";
+        })
+   
+        // Handle disconnect
+        rootsocket.on("disconnect",(reason)=>{
+            console.log("Disconnected: ",reason);
+        });
+
+        // Handle reconnect
+        rootsocket.on("reconnect",(attemptNumber)=>{
+            console.log("Reconected: ",attemptNumber);
+        });
+
+
+    </script>
+</body>
+</html>
+
+<!-- 
+disconect = CTRL+C stop the node server
+
+reconnect = Intrnet drop / WiFi off
+-->

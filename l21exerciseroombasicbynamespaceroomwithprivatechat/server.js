@@ -1,0 +1,410 @@
+import express from "express";
+import {Server} from "socket.io";
+
+import path from "path";
+import { fileURLToPath } from "url";
+
+import {namespaces} from "./data/namespace.js";
+
+// Create express app
+const app = express();
+const port = 3000;
+
+// __dirname from ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+// Static folder
+app.use(express.static(path.join(__dirname,"public"))); // now you can run http://localhost:3000/index.html
+
+// Route for home page = index.html
+app.get("/",(req,res)=>{
+    // res.sendFile(path.join(__dirname,"public/index.html"));
+    res.sendFile(path.join(__dirname,"public","index.html"));
+});
+
+
+// Start express server
+const expressServer  = app.listen(port,()=>{
+    console.log(`Server is listening on http://localhost:${port} `);
+});
+
+// Initialize Socket.IO After express.listen
+// method 1
+// const io = new Server(expressServer);
+
+// method 1 (origin)
+const io = new Server(expressServer,{
+    cors:{
+        origin:`http://localhost:${port}`,
+        methods: ["GET","POST"]
+    }
+});
+
+// Start Helper Function
+function emitNamespaceCount(namespaceInstance,endpoint){
+    namespaceInstance.emit("userCountFromServerToNS",{
+        ns: endpoint,
+        count: namespaceInstance.sockets.size
+    });
+}
+
+// room users count inside namespace
+function getRoomCount(namespaceInstance,roomName){
+    if(!roomName) return;
+
+    console.log(namespaceInstance.adapter)
+
+    return namespaceInstance.adapter.rooms.get(roomName)?.size ?? 0;
+}
+
+function emitRoomCount(namespaceInstance,roomName){
+    if(!roomName) return;
+
+    // const arrsockets = namespaceInstance.in(roomName).fetchSockets();
+    // const count = arrsockets.length;
+
+    // namespaceInstance.to(roomName).emit('userCountFromServerToNSRoom',{
+    //     roomname: roomName,
+    //     count 
+    // })
+
+    // namespaceInstance.in(roomName).emit('userCountFromServerToNSRoom',{
+    //     roomname: roomName,
+    //     count 
+    // })
+
+    namespaceInstance.to(roomName).emit("userCountFromServerToNSRoom",{
+        roomname: roomName,
+        count: getRoomCount(namespaceInstance,roomName)
+    });
+}
+
+function getOnlineUsers(namespaceInstance){
+    const users = [];
+
+    namespaceInstance.sockets.forEach((socket)=>{
+        users.push({
+            id:socket.id,
+            name: socket.data.userName || `User-${socket.id.slice(0,4)}`,
+            room: socket.data.currentRoom || null
+        })
+    })
+
+    return users;
+}
+
+function emitOnlineUsers(namespaceInstance){
+    namespaceInstance.emit('onlineUsersFromServer',getOnlineUsers(namespaceInstance))
+}
+
+// End Helper Function
+
+// Root namespaces "/" Used only to send namespace list
+io.on("connection",(socket)=>{
+    // console.log("Client connected to root /", socket.id);
+
+    socket.emit('nsList',namespaces);
+})
+
+// Create socket.io namespaces dynamically
+namespaces.forEach(namespace=>{
+    const thisNS = io.of(namespace.endpoint);
+
+    thisNS.on('connection',(socket)=>{
+        console.log(`Connected to ${namespace.endpoint}: `,socket.id);
+
+        socket.data.userName = `User-${socket.id.slice(0,4)}`;
+        socket.data.currentRoom = null;
+
+        // Welcome message per namespace
+         socket.emit("welcome",{
+            ns: namespace.endpoint,
+            msg: `Server reply: Welcome to ${namespace.name}.`
+         })
+
+        //  Send room list of this namespace
+        socket.emit('roomList',namespace.rooms);
+
+
+        // send user count to everyone in this namespace
+        emitNamespaceCount(thisNS,namespace.endpoint);
+        
+        // Online users 
+        emitOnlineUsers(thisNS);
+
+        // Set profile
+        socket.on("setProfileFromClient",(data,callback)=>{
+            const name = String(data?.name ?? "").trim().slice(0,20);
+
+            if(!name){
+                return callback?.({
+                    ok: false,
+                    error: "Name is required"
+                })
+            }
+
+            socket.data.userName = name;
+            callback?.({
+                ok: true,
+                name
+            });
+
+            // Online users 
+             emitOnlineUsers(thisNS);
+        });
+
+        // Join room
+        socket.on("joinRoomFromClient",(roomName,callback)=>{
+            try{
+
+            roomName = String(roomName || "").trim();
+            if(!roomName){   
+                return callback?.({
+                    ok: false,
+                    error: "Room Name required."
+                });
+            }
+
+            if(!namespace.rooms.includes(roomName)){   
+                return callback?.({
+                    ok: false,
+                    error: "Invalid room name."
+                });
+            }
+
+            const prevRoom = socket.data.currentRoom;
+
+            // leave old room
+            if(prevRoom && prevRoom !== roomName){
+
+                socket.to(prevRoom).emit('systemMessageFromServer',{
+                    text: `${socket.data.userName} left ${prevRoom}`
+                });
+
+                socket.leave(prevRoom);
+
+                emitRoomCount(thisNS,prevRoom);
+            }
+
+            
+            // join new room
+            if(socket.data.currentRoom !== roomName){
+                socket.join(roomName);
+                socket.data.currentRoom = roomName;
+            }
+            
+            // update room user count
+            emitRoomCount(thisNS,roomName);
+
+            // Online users 
+            emitOnlineUsers(thisNS);
+
+            socket.data.userName = socket.data.userName ||socket.id;
+            
+            // notify others in room
+            socket.to(roomName).emit('systemMessageFromServer',{
+                text: `${socket.data.userName} jointed ${roomName}`
+            });
+
+            // obj for response
+            callback?.({
+                ok: true,
+                roomname: roomName,
+                count: getRoomCount(thisNS,roomName)
+            });
+
+            }catch(err){
+                console.error("joinRoomFromClient error: ",err)
+                callback?.({
+                    ok: false,
+                    error: "Joined Failed."
+                })
+            }
+        })
+          
+        //  Chat Message Handler with current namespace
+        socket.on("messageFromClientToNS",(data,callback)=>{
+            // console.log(`Message in ${namespace.endpoint}: `,data);
+
+            const room = socket.data.currentRoom;
+            if(!room){
+                return callback({ok:false, error: "Join a foom first"});
+            }
+
+            const text = String(data?.getinputval ?? "").trim();
+
+            if(!text){
+                return callback({ok:false,error: "Empty message"});
+            }
+
+            // server to room client for display
+            thisNS.to(room).emit('messageFromServerToNS',{
+                ns: namespace.endpoint,
+                room,
+                from: socket.data.userName,
+                text: data.getinputval,
+                at: new Date().toLocaleTimeString()
+            });
+
+            callback({ok:true});
+
+        });
+
+        // Typing from client
+        socket.on("typingFromClient",()=>{
+            const room = socket.data.currentRoom;
+            if(!room) return;
+
+            socket.to(room).emit("typingFromServerNS",{
+                ns: namespace.endpoint,
+                from: socket.data.userName
+            });
+        });
+
+        // Stop typing from client
+        socket.on("stopTypingFromClientNS",()=>{
+            const room = socket.data.currentRoom;
+            if(!room) return;
+
+            socket.to(room).emit("stoptypingFromServerNS",{
+                ns: namespace.endpoint,
+                from: socket.data.userName
+            });
+        });
+
+        // Private Message
+        socket.on('privateMessageFromClient',(data,callback)=>{
+            const toSocketId = String(data?.to ?? "").trim();
+            const text = String(data?.text ?? "").trim();
+
+            if(!toSocketId){
+                return callback?.({
+                    ok: false,
+                    error: "Receiver socket ID is required"
+                });
+            }
+
+            if(!text){
+                return callback?.({
+                    ok: false,
+                    error: "Message is required"
+                });
+            }
+            console.log(toSocketId,text)
+
+            const receiver = thisNS.sockets.get(toSocketId);
+
+            if(!receiver){
+                return callback?.({
+                    ok: false,
+                    error: "User not found."
+                });
+            }
+
+
+            // for receiver display
+            receiver.emit('privateMessageFromServer',{
+                from: socket.data.userName, 
+                // fromId: socket.id, // optional
+                text,
+                at: new Date().toLocaleDateString()
+            });
+
+            // for sender display
+            socket.emit('privateMessageFromServer',{
+                from: "Me",
+                // fromId: socket.id, // optional
+                text,
+                at: new Date().toLocaleDateString()
+            });
+
+
+            callback?.({ok:true});
+        });
+
+        
+        socket.on('disconnect',(reason)=>{
+            console.log(`Client ${socket.id} disconnected from ${namespace.endpoint}. Reason: `, reason);
+
+            // after disconnect, send user count to everyone in this namespace
+            emitNamespaceCount(thisNS,namespace.endpoint);
+
+            // Online users 
+            emitOnlineUsers(thisNS);
+
+            // remove typing indicator for disconnected user
+            socket.broadcast.emit("stoptypingFromServerNS",{
+                ns: namespace.endpoint,
+                from: socket.data.userName
+            });
+        });
+    })
+})
+
+// Graceful Shutdown
+process.on("SIGINT",()=>{
+    console.log("SIGTERM received. Shutting down gracefully...");
+    expressServer.close(()=>{
+        console.log("Server closed.");
+        process.exit(0);
+    });
+});
+// nodemon server.js
+
+// SIGINT = Ctrl+C
+// SIGHUP = Terminal Close
+
+
+// 🔹 What Is the Default Room?
+
+// When a client connects:
+
+// io.on("connection", (socket) => {
+//     console.log(socket.id);
+// });
+
+// Socket.IO automatically creates a room with the same name as socket.id
+// and makes the socket join that room.
+
+// This is called the default room (or private room).
+
+// You do NOT create it.
+// Socket.IO creates it automatically.
+
+
+// 🔹 What io.in(roomName) Does
+
+// io → the main Socket.IO server instance
+
+// .in(roomName) → select a room
+
+// Then you usually chain .emit() to send an event
+
+// 🔹 Difference From Other Methods
+// 1️⃣ socket.to(roomName).emit()
+
+// Sends to everyone in the room
+
+// ❌ Excludes the sender
+
+// 2️⃣ io.in(roomName).emit()
+
+// Sends to everyone in the room
+
+// ✅ Includes the sender
+
+// 🔹 Why Two Methods Exist?
+
+// It’s just naming preference / readability.
+
+// to() → sounds natural when sending something
+
+// "Send this TO roomA"
+
+// in() → sounds natural when selecting a room
+
+// "Broadcast IN roomA"
+
+// Internally, they return the same BroadcastOperator object.
