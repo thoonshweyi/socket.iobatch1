@@ -34,6 +34,7 @@ WebSocket
 
     create public folders
     create public > index.html 
+    create public > style.css
     create server.js
 
     = Install
