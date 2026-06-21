@@ -69,10 +69,10 @@
             </div>
 
             <div class="card-body">
-                <div id="announcementBox" class="alert alert-danger"></div>
+                <div id="announcementbox" class="alert alert-danger"></div>
                 <div id="typingstatus" class="text-muted small opacity-50"></div>
                 
-                <div class="chatbox">
+                <div id="chatbox" class="chatbox">
                     <ul id="messages">
 
                     </ul>
@@ -92,15 +92,32 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
 
+        const nameinput = document.querySelector('#name');
+        const setnamebtn = document.querySelector('#setnamebtn');
+        const namestatus = document.querySelector('#namestatus');
+
+        const roomselect = document.querySelector('#roomselect');
+        const joinroombtn = document.querySelector('#joinroombtn');
+        const roomstatus = document.querySelector('#roomstatus');
+
+        const chatform = document.querySelector('#chatform');
+        const messageinput = document.querySelector('#messageinput');
+        const messages = document.querySelector('#messages')
+        const typingstatus = document.querySelector('#typingstatus');
+        
+        const announcementbox = document.querySelector('#announcementbox');
+
+        let currentRoom = null;
+        let typingtimeout = null;
 
         let newli = (msg)=>{
             const li = document.createElement('li');
             li.classList.add('list-group-item');
             li.textContent = msg;
-            display.appendChild(li);
+            messages.appendChild(li);
 
             // auto scroll to bottom
-            const chatboxdiv = document.querySelector("#chat-box");
+            const chatboxdiv = document.querySelector("#chatbox");
             chatboxdiv.scrollTop = chatboxdiv.scrollHeight;
         }
 
@@ -111,97 +128,101 @@
         rootsocket.on("connect", () => {
            console.log(`Connected to /, My ID:  ${rootsocket.id}`);
         });
-      
-    
 
         // Set Profile
-        document.querySelector('#set-profile-btn').addEventListener('click',()=>{
-            const name = username.value.trim();
+        setnamebtn.addEventListener('click',()=>{
+            const name = nameinput.value.trim();
 
-            if(!currentNsSocket){
-                newli(`Please select a namespace first`);
-                return;
-            }
-
-            currentNsSocket.emit('setProfileFromClient',{name},(res)=>{
+            rootsocket.emit('setProfileFromClient',{name},(res)=>{
                 if(!res.ok){
                     newli(`Set profile failed: ${res.error}`);
                 }
-                profilestatus.textContent = `Name: ${res.name}`;
+                namestatus.textContent = `Name: ${res.name}`;
                 newli(`System: :Your name is now ${res.name}`);
          
             })
 
         });
 
-        // Join room
-        document.querySelector('#join-room-btn').addEventListener('click',()=>{
-            const selectedroom = roomselect.value;
+        // Room List
+        rootsocket.on('roomList',(rooms)=>{
+            roomselect.innerHTML = "";
 
-            if(!currentNsSocket){
-                newli('Please select a namespace first.');
-                return;
-            }
+            rooms.forEach(room=>{
+                const newoption = document.createElement('option');
+                newoption.value = room;
+                newoption.textContent = room;
+                roomselect.appendChild(newoption);
+            });
+        });
+  
+        // Join room
+        joinroombtn.addEventListener('click',()=>{
+            const selectedroom = roomselect.value;
 
             if(!selectedroom){
                 newli('Please select a room');
                 return;
             }
 
-            // choose namespace
-            currentNsSocket.emit('joinRoomFromClient',selectedroom,(res)=>{
+            rootsocket.emit('joinRoomFromClient',selectedroom,(res)=>{
 
                 if(!res?.ok){
                     newli(`Join room failed: ${res.error}`);
                     return;
                 }
 
-                currentRoom = res.roomname;
-                currentroomP.textContent = `Current Room: ${res.roomname}`;
-                roomusercountP.textContent = `Room Users: ${res.count}`;
+                currentRoom = res.room;
+                roomstatus.textContent = `Room ${currentRoom}`;
 
-                newli(`System: You joined ${res.roomname}`);
+                newli(`System: You joined ${currentRoom}`);
             });
 
         });
 
         // Emit typing events
-        userinput.addEventListener('input',()=>{
-            if(!currentNsSocket || !currentRoom) return;
+        messageinput.addEventListener('input',()=>{
 
-            const hastext = userinput.value.trim().length > 0;
+            if(!currentRoom) return;
+
+            const hastext = messageinput.value.trim().length > 0;
             if(hastext){
-                currentNsSocket.emit("typingFromClient");
+                rootsocket.emit("typingFromClient");
             }else{
-                currentNsSocket.emit("stopTypingFromClientNS");
+                rootsocket.emit("stopTypingFromClient");
             }
 
             if(typingtimeout) clearTimeout(typingtimeout);
 
             typingtimeout = setTimeout(()=>{
-                currentNsSocket.emit("stopTypingFromClientNS");
+                rootsocket.emit("stopTypingFromClient");
             },2000)
         });
     
+        // Typing Status
+        rootsocket.on('typingFromServer',(payload)=>{
+            typingstatus.textContent = `${payload.from} is typing...`;
+
+            if(typingtimeout) clearTimeout(typingtimeout);
+
+            typingtimeout = setTimeout(()=>{
+                 typingstatus.textContent = '';
+            },2000)
+        });
+
         // Handle form submit
-        document.querySelector("#message-form").addEventListener("submit",(e)=>{
+        chatform.addEventListener("submit",(e)=>{
             e.preventDefault();
 
-            const input = document.querySelector("#user-message");
-            const getinputval = input.value.trim();
+            const getinputval = messageinput.value.trim();
             console.log(getinputval);
-
-            if(!currentNsSocket){
-                newli(`Please select a namespace first.`);
-                return;
-            }
 
             if(!currentRoom){
                 newli(`Please join a room first.`);
                 return;
             }
 
-            currentNsSocket.emit("messageFromClientToNS",{getinputval},(res)=>{
+            rootsocket.emit("messageFromClient",{getinputval},(res)=>{
                 if(!res?.ok){
                     newli(`Send failed: ${res.error}`);
                 }
@@ -209,16 +230,22 @@
 
             if(!getinputval) return;
 
+            rootsocket.emit("stopTypingFromClient");
 
-            currentNsSocket.emit("stopTypingFromClientNS");
-
-            input.value = '';
-            input.focus();
+            messageinput.value = '';
+            messageinput.focus();
         });
 
         // Receive message from server
         rootsocket.on("messageFromServer",(payload)=>{
-            newli(`From ${payload.from} : ${payload.text}`);
+            newli(`From ${payload.from} : ${payload.text} (${payload.at})`);
+        });
+
+        // Admin Announcement
+        rootsocket.on("adminmessageFromServer",(payload)=>{
+            announcementbox.style.display = 'block';
+            announcementbox.textContent = `Announcement: ${payload.text} : (${payload.at})`;
+
         });
    
         // Handle disconnect

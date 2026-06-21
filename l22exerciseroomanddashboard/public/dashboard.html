@@ -67,7 +67,7 @@
 
                 <textarea id="announcementinput" class="form-control mb-3" rows="10" placeholder="Type you rmessage...."></textarea>
                 <div class="d-flex justify-content-end">
-                    <button class="btn btn-primary">Send Announcement</button>
+                    <button id="sendannouncementbtn" class="btn btn-primary">Send Announcement</button>
                 </div>
 
                 <p id="announcementstatus" class="text-danger small opacityi-50"></p>
@@ -80,13 +80,54 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
 
+        const totalusers = document.querySelector('#totalusers')
+        const roomstats = document.querySelector('#roomstats');
 
+        const adminpassword = document.querySelector('#adminpassword');
+        const announcementinput = document.querySelector('#announcementinput');
+        const sendannouncementbtn = document.querySelector('#sendannouncementbtn');
+        const announcementstatus = document.querySelector('#announcementstatus');
    
         // Connet to Same Origin (http://localhost:3000)
         const rootsocket = io(); // or io (http://localhost:3000), default namespace "/"
 
         rootsocket.on("connect", () => {
            console.log(`Connected to /, My ID:  ${rootsocket.id}`);
+        });
+
+        rootsocket.on('dashboard:stats',(payload)=>{
+            totalusers.textContent = payload.totalusers;
+
+            roomstats.innerHTML = "";
+            payload.rooms.forEach(item=>{
+                const newtr = document.createElement('tr');
+                newtr.innerHTML = `
+                    <td>
+                        <strong>${item.initroom}</strong>
+                        <span>${item.count}</span>
+                    </td>
+                `;
+
+                roomstats.appendChild(newtr);
+            })
+        })
+  
+        sendannouncementbtn.addEventListener('click',()=>{
+            const password = adminpassword.value.trim();
+            const announcementtext = announcementinput.value.trim();
+
+            console.log(password,announcementtext);
+            rootsocket.emit('adminmessageFromClient',{password,announcementtext},(res)=>{
+                announcementstatus.textContent = res.message;
+                if(res.ok){ 
+                    announcementstatus.classList.add('success-message')
+                    announcementstatus.classList.remove('error-message')
+                    announcementinput.focus();
+                }else{
+                    announcementstatus.classList.remove('success-message')
+                    announcementstatus.classList.add('error-message')
+                }
+            });
         });
       
     

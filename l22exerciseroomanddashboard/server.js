@@ -39,29 +39,34 @@ const io = new Server(server,{
 const initrooms = ["Sales","Marketing","HR","Warehouse","IT"];
 
 // Start Helper function
-function getOnlineUsers(){
-    // const users = [];
+function getStats(){
+    const roomstats = initrooms.map(initroom=>{
+        const roomset = io.sockets.adapter.rooms.get(initroom);
 
-    // namespaceInstance.sockets.forEach((socket)=>{
-    //     users.push({
-    //         id:socket.id,
-    //         name: socket.data.userName || `User-${socket.id.slice(0,4)}`,
-    //         room: socket.data.currentRoom || null
-    //     })
-    // })
+        return {
+            initroom,
+            count: roomset ? roomset.size : 0
+        }
+    });
 
-    // return users;
+    return {
+        rooms: roomstats,
+        totalusers: io.engine.clientsCount // total socket users
+    }
 }
 
-function emitOnlineUsers(){
-    io.emit('onlineUsersFromServer',getOnlineUsers());
+function emitstats(){
+    io.emit('dashboard:stats',getStats());
 }
 // End Helper funtion
 
 io.on("connection",(socket)=>{
     console.log("Connected: ", socket.id);
 
-    socket.data.userName = `User-${socket.id.slice(0,4)}`;
+    // dashboard stats
+    emitstats();
+
+    socket.data.username = `User-${socket.id.slice(0,4)}`;
     socket.data.currentRoom = null;
     
     // send room list
@@ -78,91 +83,82 @@ io.on("connection",(socket)=>{
             })
         }
 
-        socket.data.userName = name;
+        socket.data.username = name;
         callback?.({
             ok: true,
             name,
             message: "Name Updated!"
         });
-
-        // Online room users count 
-        emitOnlineUsers();
     });
 
     // Join room
-        socket.on("joinRoomFromClient",(roomName,callback)=>{
-            try{
+    socket.on("joinRoomFromClient",(roomName,callback)=>{
+        try{
 
-                roomName = String(roomName || "").trim();
-                if(!roomName){   
-                    return callback?.({
-                        ok: false,
-                        error: "Room Name required."
-                    });
-                }
-
-                if(!initrooms.includes(roomName)){   
-                    return callback?.({
-                        ok: false,
-                        error: "Invalid room name."
-                    });
-                }
-
-                const prevRoom = socket.data.currentRoom;
-
-                // leave old room
-                if(prevRoom && prevRoom !== roomName){
-
-                    socket.leave(prevRoom);
-
-                    emitRoomCount();
-
-                    socket.to(prevRoom).emit('systemMessageFromServer',{
-                        message: `${socket.data.userName} left ${prevRoom}`
-                    });
-
-                }
-
-                
-                // join new room
-                if(socket.data.currentRoom !== roomName){
-                    socket.join(roomName);
-                    socket.data.currentRoom = roomName;
-                }
-                
-                // update room user count
-                emitRoomCount();
-
-                // notify others in room
-                socket.to(roomName).emit('systemMessageFromServer',{
-                    message: `${socket.data.userName} joined ${roomName}`
-                });
-
-                // obj for response
-                callback?.({
-                    ok: true,
-                    roomname: roomName,
-                    message: `Joined ${room}`
-                });
-
-            }catch(err){
-                console.error("joinRoomFromClient error: ",err)
-                callback?.({
+            roomName = String(roomName || "").trim();
+            if(!roomName){   
+                return callback?.({
                     ok: false,
-                    error: "Joined Failed."
-                })
+                    error: "Room Name required."
+                });
             }
-        })
-        // leave old room
 
-        // join new room
-        
-        // callback
+            if(!initrooms.includes(roomName)){   
+                return callback?.({
+                    ok: false,
+                    error: "Invalid room name."
+                });
+            }
+
+            const prevRoom = socket.data.currentRoom;
+
+            // leave old room
+            if(prevRoom && prevRoom !== roomName){
+
+                socket.leave(prevRoom);
+
+                emitstats();
+
+                socket.to(prevRoom).emit('systemMessageFromServer',{
+                    message: `${socket.data.username} left ${prevRoom}`
+                });
+
+            }
+
+            
+            // join new room
+            if(socket.data.currentRoom !== roomName){
+                socket.join(roomName);
+                socket.data.currentRoom = roomName;
+            }
+            
+            emitstats();
+
+            // notify others in room
+            socket.to(roomName).emit('systemMessageFromServer',{
+                message: `${socket.data.username} joined ${roomName}`
+            });
+
+            // obj for response
+            callback?.({
+                ok: true,
+                room: roomName,
+                message: `Joined ${roomName}`
+            });
+
+        }catch(err){
+            console.error("joinRoomFromClient error: ",err)
+            callback?.({
+                ok: false,
+                error: "Joined Failed."
+            })
+        }
+    })
 
     // chat Message
     socket.on("messageFromClient",(data,callback)=>{
         const room = socket.data.currentRoom;
-        const username = socket.data.userName;
+        const username = socket.data.username;
         if(!room){
             return callback({ok:false, message: "Join a foom first"});
         }
@@ -188,8 +184,8 @@ io.on("connection",(socket)=>{
 
     // Admin Announcement Message
     socket.on("adminmessageFromClient",(data,callback)=>{
-        const password = String(data?.getinputpassword ?? "").trim();
-        const text = String(data?.getinputval ?? "").trim();
+        const password = String(data?.password ?? "").trim();
+        const text = String(data?.announcementtext ?? "").trim();
 
         if(password !== 'admin123'){
             return callback({ok:false,message: "Wrong admin password"});
@@ -215,18 +211,18 @@ io.on("connection",(socket)=>{
         const room = socket.data.currentRoom;
         if(!room) return;
 
-        socket.to(room).emit("typingFromServerNS",{
-            from: socket.data.userName
+        socket.to(room).emit("typingFromServer",{
+            from: socket.data.username
         });
     });
 
     // Stop typing from client
-    socket.on("stopTypingFromClientNS",()=>{
+    socket.on("stopTypingFromClient",()=>{
         const room = socket.data.currentRoom;
         if(!room) return;
 
         socket.to(room).emit("stoptypingFromServerNS",{
-            from: socket.data.userName
+            from: socket.data.username
         });
     });
 
@@ -237,7 +233,7 @@ io.on("connection",(socket)=>{
 
         // after disconnect, send system message
         const room = socket.data.currentRoom;
-        const username = socket.data.userName;
+        const username = socket.data.username;
 
         if(room){
             socket.to(room).emit("systemMessageFromServer",{
@@ -247,7 +243,7 @@ io.on("connection",(socket)=>{
     
         // remove typing indicator for disconnected user
         socket.broadcast.emit("stoptypingFromServerNS",{
-            from: socket.data.userName
+            from: socket.data.username
         });
     });
 });
