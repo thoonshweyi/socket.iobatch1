@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Room + Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link href="style.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="p-3">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between">
+            <div>
+                <h4 class="mb-3">Socket.IO Room + Dashboard</h4>
+                <p>Monitor staffs, rooms, and send real-time announcement</p>
+            </div>
+
+            <div>
+                <a href="/" class="btn btn-sm btn-dark">Open Chat</a>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <p class="card-title mb-0">Total Online Users</p>
+                    </div>
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <h3 id="totalusers">0</h3>
+                        <span class="badge text-success">Live</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <p class="card-title mb-0">Total Messages</p>
+                    </div>
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <h3 id="totalmessages">0</h3>
+                        <span class="badge text-primary">Messages</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <p class="card-title mb-0">Top Active Room</p>
+                    </div>
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <h3 id="toproom">-</h3>
+                        <span id="toproomusers" class="badge bg-warning text-dark">0 Users</span>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">Room Statistics</h6>
+                            <span class="badge bg-success">Real-time</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Room</th>
+                                    <th>Users</th>
+                                    <th>Messages</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roomstats">
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">Online Users</h6>
+                            <span class="badge bg-primary">Live</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Room</th>
+                                    <th>Socket ID</th>
+                                </tr>
+                            </thead>
+                            <tbody id="onlineusers">
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                            <h6 class="card-title mb-0">Recent Messages</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul id="recentmessages" class="list-group list-group-flush">
+
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                            <h6 class="card-title mb-0">Activity Logs</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul id="activitylogs" class="list-group list-group-flush">
+
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div> 
+
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6>Admin Announcement</h6>
+                    <span class="badge bg-success">Broadcast</span>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <input type="text" id="adminpassword" class="form-control form-control-sm rounded-0 mb-3" placeholder="Admin password: admin123">
+                
+                <select id="announcementroom" class="form-select form-select-sm rounded-0 mb-3">
+                    <option value="">All Rooms</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="HR">HR</option>
+                    <option value="Warehouse">Warehouse</option>
+                    <option value="IT">IT</option>
+                </select>
+
+                <textarea id="announcementinput" class="form-control mb-3" rows="10" placeholder="Type you rmessage...."></textarea>
+                <div class="d-flex justify-content-end">
+                    <button id="sendannouncementbtn" class="btn btn-primary">Send Announcement</button>
+                </div>
+
+                <p id="announcementstatus" class="text-danger small opacityi-50"></p>
+                    
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Dashboard Actions</h6>
+                </div>
+            </div>
+
+            <div class="card-body d-flex justify-content-end">
+                <button id="resetstatsbtn" class="btn btn-danger">Reset Statistics</button>
+            </div>
+        </div>
+    </div>
+ 
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+        const totalusers = document.querySelector('#totalusers')
+        const roomstats = document.querySelector('#roomstats');
+
+        const adminpassword = document.querySelector('#adminpassword');
+        const announcementinput = document.querySelector('#announcementinput');
+        const announcementroom = document.querySelector('#announcementroom');
+        const sendannouncementbtn = document.querySelector('#sendannouncementbtn');
+        const announcementstatus = document.querySelector('#announcementstatus');
+
+        const totalmessages = document.querySelector('#totalmessages');
+        const toproom = document.querySelector('#toproom');
+        const toproomusers = document.querySelector('#toproomusers');
+        const onlineuserstable = document.querySelector('#onlineusers');
+        const recentmessagesul = document.querySelector('#recentmessages');
+        const activitylogsul = document.querySelector('#activitylogs');
+        const resetstatsbtn = document.querySelector('#resetstatsbtn');
+
+
+
+
+   
+        // Connet to Same Origin (http://localhost:3000)
+        const rootsocket = io(); // or io (http://localhost:3000), default namespace "/"
+
+        rootsocket.on("connect", () => {
+           console.log(`Connected to /, My ID:  ${rootsocket.id}`);
+        });
+
+        rootsocket.on('dashboard:stats',(payload)=>{
+            console.log(payload);
+            totalusers.textContent = payload.totalusers;
+
+            totalmessages.textContent = payload.totalmessages;
+            toproom.textContent = payload.toproom?.initroom || '-';
+            toproomusers.textContent = `${payload.toproom?.count || 0} users`
+
+            roomstats.innerHTML = "";
+            payload.rooms.forEach(item=>{
+                const newtr = document.createElement('tr');
+                newtr.innerHTML = `
+                    <td>
+                        <strong>${item.initroom}</strong>
+                    </td>
+
+                    <td>
+                        <span>${item.count}</span>
+                    </td>
+
+                    <td>
+                        <span>${item.messagescount}</span>
+                    </td>
+                `;
+
+                roomstats.appendChild(newtr);
+            })
+
+            onlineuserstable.innerHTML = "";
+            payload.onlineusers.forEach(onlineuser=>{
+                const newtr = document.createElement('tr');
+                newtr.innerHTML = `
+                    <td>${onlineuser.name}</td>
+                    <td>${onlineuser.room}</td>
+                    <td><small>${onlineuser.id}</small></td>
+                `;
+
+                onlineuserstable.appendChild(newtr);
+            })
+
+            recentmessagesul.innerHTML = "";
+
+            payload.recentmessages.forEach(recentmessage=>{
+                const newli = document.createElement('li');
+                newli.className = "list-group-item small";
+                newli.textContent = `[${recentmessage.room}] ${recentmessage.from} : ${recentmessage.text} (${recentmessage.at})`;
+                recentmessagesul.appendChild(newli);
+            })
+
+            activitylogsul.innerHTML = "";
+
+            payload.activitylogs.forEach(activitylog=>{
+                const newli = document.createElement('li');
+                newli.className = "list-group-item small";
+                newli.textContent = `${activitylog.at} : ${activitylog.text}`;
+                activitylogsul.appendChild(newli);
+            })
+        })
+  
+        sendannouncementbtn.addEventListener('click',()=>{
+            const password = adminpassword.value.trim();
+            const announcementtext = announcementinput.value.trim();
+            const selectedroom = announcementroom.value;
+
+            console.log(password,announcementtext);
+            rootsocket.emit('adminmessageFromClient',{password,announcementtext,selectedroom},(res)=>{
+                announcementstatus.textContent = res.message;
+                if(res.ok){ 
+                    announcementstatus.classList.add('success-message')
+                    announcementstatus.classList.remove('error-message')
+                    announcementinput.focus();
+                }else{
+                    announcementstatus.classList.remove('success-message')
+                    announcementstatus.classList.add('error-message')
+                }
+            });
+        });
+
+        resetstatsbtn.addEventListener('click',()=>{
+            const password = adminpassword.value.trim();
+
+            rootsocket.emit('resetstatusFromClient',{password},(res)=>{
+                announcementstatus.textContent = res.message;
+
+                if(res.ok){ 
+                    announcementstatus.classList.add('success-message')
+                    announcementstatus.classList.remove('error-message')
+                    announcementinput.focus();
+                }else{
+                    announcementstatus.classList.remove('success-message')
+                    announcementstatus.classList.add('error-message')
+                }
+            })
+        })
+      
+    
+
+
+    </script>
+</body>
+</html>

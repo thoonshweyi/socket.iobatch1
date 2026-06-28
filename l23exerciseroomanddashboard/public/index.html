@@ -31,7 +31,7 @@
                         <input type="text" name="name" id="name" class="form-control form-control-sm rounded-0 mb-2"  placeholder="Enter you name">
                         <div class="d-flex justify-content-between">
                             <p id="namestatus">Name: not set</p>
-                            <button id="set-profile-btn" class="btn btn-sm btn-primary rounded-0">Set Name</button>
+                            <button id="setnamebtn" class="btn btn-sm btn-primary rounded-0">Set Name</button>
                         </div>
 
                     </div>
@@ -46,11 +46,11 @@
                     </div>
 
                     <div class="card-body">
-                        <select name="roomselect" id="room-select" class="form-select form-select-sm rounded-0 mb-2">
+                        <select name="roomselect" id="roomselect" class="form-select form-select-sm rounded-0 mb-2">
                         </select>
                         <div class="d-flex justify-content-between">
-                            <p id="room-status">Room not joined</p>
-                            <button id="join-room-btn" class="btn btn-sm btn-primary rounded-0">Join Room</button>
+                            <p id="roomstatus">Room not joined</p>
+                            <button id="joinroombtn" class="btn btn-sm btn-primary rounded-0">Join Room</button>
                         </div>
 
                     </div>
@@ -69,18 +69,18 @@
             </div>
 
             <div class="card-body">
-                <div id="announcementBox" class="alert alert-danger"></div>
+                <div id="announcementbox" class="alert alert-danger"></div>
                 <div id="typingstatus" class="text-muted small opacity-50"></div>
                 
-                <div id="chat-box" class="chatbox">
-                    <ul id="display">
+                <div id="chatbox" class="chatbox">
+                    <ul id="messages">
 
                     </ul>
                 </div>
 
-                <form id="message-form" class="chatform">
+                <form id="chatform" class="chatform">
                     <div class="input-group">
-                        <input type="text" id="user-message" class="form-control" placeholder="Type you rmessage...." autocomplete="off">
+                        <input type="text" id="messageinput" class="form-control" placeholder="Type you rmessage...." autocomplete="off">
                         <button type="submit" class="btn btn-primary input-group-text">Send</button>
                     </div>
                 </form>
@@ -92,22 +92,32 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
 
-        const roomselect =  document.querySelector('#room-select');
-        const currentroomP = document.querySelector('#room-status');
-        const userinput = document.querySelector('#user-message');
+        const nameinput = document.querySelector('#name');
+        const setnamebtn = document.querySelector('#setnamebtn');
+        const namestatus = document.querySelector('#namestatus');
+
+        const roomselect = document.querySelector('#roomselect');
+        const joinroombtn = document.querySelector('#joinroombtn');
+        const roomstatus = document.querySelector('#roomstatus');
+
+        const chatform = document.querySelector('#chatform');
+        const messageinput = document.querySelector('#messageinput');
+        const messages = document.querySelector('#messages')
+        const typingstatus = document.querySelector('#typingstatus');
+        
+        const announcementbox = document.querySelector('#announcementbox');
 
         let currentRoom = null;
-        const profilestatus = document.querySelector("#profile-status");
-
+        let typingtimeout = null;
 
         let newli = (msg)=>{
             const li = document.createElement('li');
             li.classList.add('list-group-item');
             li.textContent = msg;
-            display.appendChild(li);
+            messages.appendChild(li);
 
             // auto scroll to bottom
-            const chatboxdiv = document.querySelector("#chat-box");
+            const chatboxdiv = document.querySelector("#chatbox");
             chatboxdiv.scrollTop = chatboxdiv.scrollHeight;
         }
 
@@ -119,91 +129,92 @@
            console.log(`Connected to /, My ID:  ${rootsocket.id}`);
         });
 
-        // room print
-        rootsocket.on('roomList',(rooms)=>{
-            roomselect.innerHTML = `<option selected disabled>Select room</option>`;
-            rooms.forEach(room=>{
-                const option = document.createElement('option');
-                option.value = room;
-                option.textContent = room;
-                roomselect.appendChild(option);
-            })
-        });
-
-      
-    
-
         // Set Profile
-        document.querySelector('#set-profile-btn').addEventListener('click',()=>{
-            const name = username.value.trim();
+        setnamebtn.addEventListener('click',()=>{
+            const name = nameinput.value.trim();
 
             rootsocket.emit('setProfileFromClient',{name},(res)=>{
                 if(!res.ok){
-                    newli(`Set profile failed: ${res.message}`);
+                    newli(`Set profile failed: ${res.error}`);
                 }
-                profilestatus.textContent = `Name: ${res.name}`;
+                namestatus.textContent = `Name: ${res.name}`;
                 newli(`System: :Your name is now ${res.name}`);
          
             })
 
         });
 
-        // Join room
-        document.querySelector('#join-room-btn').addEventListener('click',()=>{
-            console.log('hay');
-            const selectedroom = roomselect.value;
+        // Room List
+        rootsocket.on('roomList',(rooms)=>{
+            roomselect.innerHTML = "";
 
-            if(!rootsocket){
-                newli('Please select a namespace first.');
-                return;
-            }
+            rooms.forEach(room=>{
+                const newoption = document.createElement('option');
+                newoption.value = room;
+                newoption.textContent = room;
+                roomselect.appendChild(newoption);
+            });
+        });
+  
+        // Join room
+        joinroombtn.addEventListener('click',()=>{
+            const selectedroom = roomselect.value;
 
             if(!selectedroom){
                 newli('Please select a room');
                 return;
             }
 
-            // choose namespace
             rootsocket.emit('joinRoomFromClient',selectedroom,(res)=>{
 
                 if(!res?.ok){
-                    newli(`Join room failed: ${res.message}`);
+                    newli(`Join room failed: ${res.error}`);
                     return;
                 }
 
-                currentRoom = res.roomname;
-                currentroomP.textContent = `Current Room: ${res.roomname}`;
-                // roomusercountP.textContent = `Room Users: ${res.count}`;
+                currentRoom = res.room;
+                roomstatus.textContent = `Room ${currentRoom}`;
 
-                newli(`System: You joined ${res.roomname}`);
+                newli(`System: You joined ${currentRoom}`);
             });
 
         });
 
         // Emit typing events
-        userinput.addEventListener('input',()=>{
-            if(!rootsocket || !currentRoom) return;
+        messageinput.addEventListener('input',()=>{
 
-            const hastext = userinput.value.trim().length > 0;
+            if(!currentRoom) return;
+
+            const hastext = messageinput.value.trim().length > 0;
             if(hastext){
                 rootsocket.emit("typingFromClient");
             }else{
-                rootsocket.emit("stopTypingFromClientNS");
+                rootsocket.emit("stopTypingFromClient");
             }
 
             if(typingtimeout) clearTimeout(typingtimeout);
 
             typingtimeout = setTimeout(()=>{
-                rootsocket.emit("stopTypingFromClientNS");
+                rootsocket.emit("stopTypingFromClient");
             },2000)
         });
     
+        // Typing Status
+        rootsocket.on('typingFromServer',(payload)=>{
+            typingstatus.textContent = `${payload.from} is typing...`;
+
+            if(typingtimeout) clearTimeout(typingtimeout);
+
+            typingtimeout = setTimeout(()=>{
+                 typingstatus.textContent = '';
+            },2000)
+        });
+
         // Handle form submit
-        document.querySelector("#message-form").addEventListener("submit",(e)=>{
+        chatform.addEventListener("submit",(e)=>{
             e.preventDefault();
 
-            const input = document.querySelector("#user-message");
-            const getinputval = input.value.trim();
+            const getinputval = messageinput.value.trim();
             console.log(getinputval);
 
             if(!currentRoom){
@@ -213,22 +224,28 @@
 
             rootsocket.emit("messageFromClient",{getinputval},(res)=>{
                 if(!res?.ok){
-                    newli(`Send failed: ${res.message}`);
+                    newli(`Send failed: ${res.error}`);
                 }
             });
 
             if(!getinputval) return;
 
-
             rootsocket.emit("stopTypingFromClient");
 
-            input.value = '';
-            input.focus();
+            messageinput.value = '';
+            messageinput.focus();
         });
 
         // Receive message from server
         rootsocket.on("messageFromServer",(payload)=>{
-            newli(`From ${payload.from} : ${payload.text}`);
+            newli(`From ${payload.from} : ${payload.text} (${payload.at})`);
+        });
+
+        // Admin Announcement
+        rootsocket.on("adminmessageFromServer",(payload)=>{
+            announcementbox.style.display = 'block';
+            announcementbox.textContent = `Announcement: ${payload.text} : (${payload.at})`;
+
         });
    
         // Handle disconnect
