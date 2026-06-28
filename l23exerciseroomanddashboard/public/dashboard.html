@@ -283,12 +283,13 @@
             rootsocket.emit('adminmessageFromClient',{password,announcementtext,selectedroom},(res)=>{
                 announcementstatus.textContent = res.message;
                 if(res.ok){ 
-                    announcementstatus.classList.add('success-message')
-                    announcementstatus.classList.remove('error-message')
+                    announcementstatus.classList.add('success-message');
+                    announcementstatus.classList.remove('error-message');
+                    announcementinput.value = "";
                     announcementinput.focus();
                 }else{
-                    announcementstatus.classList.remove('success-message')
-                    announcementstatus.classList.add('error-message')
+                    announcementstatus.classList.remove('success-message');
+                    announcementstatus.classList.add('error-message');
                 }
             });
         });

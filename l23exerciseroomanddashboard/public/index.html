@@ -110,9 +110,14 @@
         let currentRoom = null;
         let typingtimeout = null;
 
-        let newli = (msg)=>{
+        let newli = (msg,type="")=>{
             const li = document.createElement('li');
             li.classList.add('list-group-item');
+
+            if(type == "system"){
+                li.classList.add('system-message');
+            }
+
             li.textContent = msg;
             messages.appendChild(li);
 
@@ -138,7 +143,7 @@
                     newli(`Set profile failed: ${res.error}`);
                 }
                 namestatus.textContent = `Name: ${res.name}`;
-                newli(`System: :Your name is now ${res.name}`);
+                newli(`System: :Your name is now ${res.name}`,"system");
          
             })
 
@@ -161,21 +166,21 @@
             const selectedroom = roomselect.value;
 
             if(!selectedroom){
-                newli('Please select a room');
+                newli('Please select a room',"system");
                 return;
             }
 
             rootsocket.emit('joinRoomFromClient',selectedroom,(res)=>{
 
                 if(!res?.ok){
-                    newli(`Join room failed: ${res.error}`);
+                    newli(`Join room failed: ${res.error}`,"system");
                     return;
                 }
 
                 currentRoom = res.room;
                 roomstatus.textContent = `Room ${currentRoom}`;
 
-                newli(`System: You joined ${currentRoom}`);
+                newli(`System: You joined ${currentRoom}`,"system");
             });
 
         });
@@ -218,13 +223,13 @@
             console.log(getinputval);
 
             if(!currentRoom){
-                newli(`Please join a room first.`);
+                newli(`Please join a room first.`,"system");
                 return;
             }
 
             rootsocket.emit("messageFromClient",{getinputval},(res)=>{
                 if(!res?.ok){
-                    newli(`Send failed: ${res.error}`);
+                    newli(`Send failed: ${res.error}`,"system");
                 }
             });
 
@@ -246,6 +251,10 @@
             announcementbox.style.display = 'block';
             announcementbox.textContent = `Announcement: ${payload.text} : (${payload.at})`;
 
+            // setTimeout(()=>{
+            //     announcementbox.style.display = "none";
+            //     announcementbox.textContent = "";
+            // },10000)
         });
    
         // Handle disconnect
